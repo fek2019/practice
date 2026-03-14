@@ -1,0 +1,81 @@
+
+> watch-repair-frontend@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.3.0
+   - Local:        http://localhost:3000
+   - Network:      http://10.235.36.144:3000
+
+ ✓ Starting...
+ ✓ Ready in 2.1s
+ ○ Compiling / ...
+ ✓ Compiled / in 8.5s (773 modules)
+ GET / 200 in 9103ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 764ms (745 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 996ms
+ HEAD / 200 in 633ms
+ ✓ Compiled in 778ms (742 modules)
+ GET / 200 in 204ms
+ ✓ Compiled /_not-found in 163ms (422 modules)
+ GET /_next/static/webpack/61e3fa7505c23ba2.webpack.hot-update.json 404 in 406ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET / 200 in 143ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 58ms
+ ✓ Compiled in 413ms (745 modules)
+ ✓ Compiled in 1243ms (759 modules)
+ GET / 200 in 122ms
+ GET / 200 in 29ms
+ GET / 200 in 25ms
+ GET /_next/static/webpack/59573bde536b44a1.webpack.hot-update.json 404 in 103ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET / 200 in 82ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 56ms
+ ✓ Compiled in 588ms (759 modules)
+ ✓ Compiled in 489ms (759 modules)
+ GET / 404 in 69ms
+ GET / 404 in 34ms
+ GET /_next/static/webpack/app/layout.169df22111c8ed8d.hot-update.js 404 in 201ms
+ GET /_next/static/webpack/webpack.169df22111c8ed8d.hot-update.js 404 in 198ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET / 404 in 67ms
+ GET /_next/static/css/app/layout.css?v=1773522122176 404 in 116ms
+ GET /_next/static/chunks/webpack.js?v=1773522122176 404 in 124ms
+ GET /_next/static/chunks/main-app.js?v=1773522122176 404 in 110ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 113ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 74ms
+ GET /_next/static/chunks/app/layout.js 404 in 62ms
+ GET /_next/static/chunks/app/page.js 404 in 60ms
+ ✓ Compiled in 1620ms (745 modules)
+ ✓ Compiled in 310ms (421 modules)
+ ⨯ ./src/app/page.tsx
+Error:   [31mx[0m Expression expected
+    ,-[[36;1;4mC:\Users\user\OneDrive\Рабочий стол\practice\src\app\page.tsx[0m:31:1]
+ [2m28[0m | 
+ [2m29[0m | export default function HomePage() {
+ [2m30[0m |   return (
+ [2m31[0m |     <>
+    : [35;1m     ^[0m
+ [2m32[0m |       <section className="hero hero-premium">
+ [2m33[0m |         <div className="container hero-grid">
+ [2m34[0m |           <div className="hero-copy" data-reveal="left">
+    `----
+  [31mx[0m Expected ',', got 'className'
+    ,-[[36;1;4mC:\Users\user\OneDrive\Рабочий стол\practice\src\app\page.tsx[0m:95:1]
+ [2m92[0m |         </div>
+ [2m93[0m |       </section>
+ [2m94[0m | 
+ [2m95[0m |       <section className="ticker-section">
+    : [35;1m               ^^^^^^^^^[0m
+ [2m96[0m |         <div className="ticker-track">
+ [2m97[0m |           {[...tickerItems, ...tickerItems].map((item, index) => (
+ [2m98[0m |             <span key={`${item}-${index}`}>
+    `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/app/page.tsx
+ ✓ Compiled in 884ms (745 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\user\OneDrive\Рабочий стол\practice\.next\cache\webpack\server-development\5.pack.gz_' -> 'C:\Users\user\OneDrive\Рабочий стол\practice\.next\cache\webpack\server-development\5.pack.gz'

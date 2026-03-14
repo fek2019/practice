@@ -1,0 +1,40 @@
+
+> watch-repair-frontend@0.1.0 dev
+> next dev --port 3000
+
+   ▲ Next.js 15.3.0
+   - Local:        http://localhost:3000
+   - Network:      http://10.235.50.144:3000
+
+ ✓ Starting...
+ ✓ Ready in 2.2s
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 5s (767 modules)
+ GET /_next/static/webpack/cf7f3b0da0a80392.webpack.hot-update.json 404 in 5912ms
+ GET /_next/static/webpack/cf7f3b0da0a80392.webpack.hot-update.json 404 in 110ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ ○ Compiling / ...
+ ✓ Compiled / in 1464ms (748 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET / 200 in 1750ms
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET / 200 in 203ms
+ GET / 200 in 82ms
+ ✓ Compiled /services in 423ms (758 modules)
+ GET /services 200 in 558ms
+ ✓ Compiled /masters in 464ms (766 modules)
+ GET /masters 200 in 602ms
+ ✓ Compiled /booking in 451ms (774 modules)
+ GET /booking 200 in 589ms
+ ✓ Compiled /contacts in 360ms (776 modules)
+ GET /contacts 200 in 496ms
+ ✓ Compiled /account in 411ms (785 modules)
+ GET /account 200 in 579ms
+ ✓ Compiled /account/client in 451ms (795 modules)
+ GET /account/client 200 in 642ms
+ ○ Compiling /account/master ...
+ ✓ Compiled /account/master in 515ms (803 modules)
+ GET /account/master 200 in 689ms
+ ✓ Compiled /admin in 469ms (811 modules)
+ GET /admin 200 in 690ms
