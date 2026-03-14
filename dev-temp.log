@@ -38,3 +38,26 @@
  GET /account/master 200 in 689ms
  ✓ Compiled /admin in 469ms (811 modules)
  GET /admin 200 in 690ms
+ ○ Compiling /masters/[id] ...
+ ✓ Compiled /masters/[id] in 840ms (775 modules)
+ GET /masters/m-1 200 in 2046ms
+ GET / 200 in 93ms
+ ✓ Compiled /services in 297ms (428 modules)
+ GET /services 200 in 544ms
+ ✓ Compiled /masters in 142ms (434 modules)
+ GET /masters 200 in 346ms
+ ✓ Compiled /masters/[id] in 156ms (447 modules)
+ GET /masters/m-1 200 in 790ms
+ ○ Compiling /booking ...
+ ✓ Compiled /booking in 527ms (453 modules)
+ GET /booking 200 in 663ms
+ ✓ Compiled /contacts in 212ms (457 modules)
+ GET /contacts 200 in 340ms
+ ✓ Compiled /account in 235ms (463 modules)
+ GET /account 200 in 389ms
+ ✓ Compiled /account/client in 268ms (470 modules)
+ GET /account/client 200 in 395ms
+ ✓ Compiled /account/master in 266ms (476 modules)
+ GET /account/master 200 in 403ms
+ ✓ Compiled /admin in 291ms (482 modules)
+ GET /admin 200 in 413ms
