@@ -7,6 +7,7 @@ import { createAppointment, getAvailableSlots, listMasters, listServices } from 
 import { Appointment, Master, Service } from "@/types";
 
 const steps = ["Услуга", "Мастер", "Дата и время", "Контакты", "Подтверждение"];
+const BOOKING_PROGRESS_EVENT = "booking-wizard:progress";
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
@@ -67,6 +68,18 @@ export function BookingWizard() {
     () => masters.find((master) => master.id === masterId) ?? null,
     [masterId, masters]
   );
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(BOOKING_PROGRESS_EVENT, {
+        detail: {
+          step,
+          total: steps.length,
+          submitted: Boolean(success)
+        }
+      })
+    );
+  }, [step, success]);
 
   const nextStep = () => {
     setError("");

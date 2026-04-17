@@ -1,18 +1,28 @@
+import Link from "next/link";
+
 export default function ContactsPage() {
   return (
     <div className="contacts-page">
       <section className="contacts-hero">
-        <div className="container">
+        <div className="container contacts-hero-grid">
           <div className="contacts-hero-copy" data-reveal="left">
             <span className="tag">Контакты</span>
-            <h1>Как нас найти</h1>
-            <p>Три мастерские по Москве, единый номер для консультаций и онлайн-записи.</p>
-            <div className="contacts-tags">
-              <span className="small-badge">Ежедневно 10:00-19:00</span>
-              <span className="small-badge">Срочный прием до 17:30</span>
-              <span className="small-badge">Подтверждение в день обращения</span>
+            <h1>Раздел контактов обновляется</h1>
+            <p>
+              Мы готовим новую версию страницы. Контактные данные добавим
+              позднее, когда финализируем структуру.
+            </p>
+            <div className="actions-row">
+              <Link href="/booking" className="outline-button">
+                Записаться онлайн
+              </Link>
             </div>
           </div>
+
+          <article className="panel page-spotlight-panel" data-reveal="right">
+            <h3>Контент в подготовке</h3>
+            <div className="contacts-empty-slot" aria-hidden="true" />
+          </article>
         </div>
       </section>
 
@@ -21,19 +31,14 @@ export default function ContactsPage() {
           <div className="split contacts-layout">
             <article className="panel contacts-main-card" data-reveal="left">
               <h3>Главная мастерская</h3>
-              <div className="contacts-list">
-                <p>Москва, ул. Покровка, 18</p>
-                <p>+7 (495) 120-40-40</p>
-                <p>hello@watchlab.ru</p>
-                <p>Ежедневно 10:00-19:00</p>
-              </div>
-              <div className="notice success contacts-note">Прием срочных заказов до 17:30.</div>
+              <div className="contacts-empty-slot contacts-empty-slot-tall" aria-hidden="true" />
             </article>
 
             <article className="card contacts-map-card" data-reveal="right">
               <h3>Карта (заглушка)</h3>
               <p className="hint">
-                В финальной версии подключите Yandex/Google Maps через клиентский SDK (фронтенд-подключение).
+                Здесь появится интерактивная карта после подключения финальной
+                интеграции.
               </p>
               <div className="contacts-map-stub" />
             </article>

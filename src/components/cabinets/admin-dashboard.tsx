@@ -24,12 +24,12 @@ const emptyService: Omit<Service, "id"> = {
   price: 0,
   category: "mechanical",
   repairType: "cleaning",
-  imageUrl: ""
+  imageUrl: "stub://service-image"
 };
 
 const emptyMaster: Omit<Master, "id"> = {
   name: "",
-  photo: "",
+  photo: "stub://master-photo",
   specialization: "universal",
   experience: 1,
   rating: 4.5,
@@ -106,10 +106,13 @@ export function AdminDashboard() {
     event.preventDefault();
     await withRefresh(
       async () => {
-        if (!serviceForm.name || !serviceForm.description || !serviceForm.imageUrl || serviceForm.price <= 0) {
+        if (!serviceForm.name || !serviceForm.description || serviceForm.price <= 0) {
           throw new Error("Заполните форму услуги полностью.");
         }
-        await adminCreateService(serviceForm);
+        await adminCreateService({
+          ...serviceForm,
+          imageUrl: serviceForm.imageUrl || "stub://service-image"
+        });
         setServiceForm(emptyService);
       },
       "Услуга добавлена."
@@ -120,10 +123,13 @@ export function AdminDashboard() {
     event.preventDefault();
     await withRefresh(
       async () => {
-        if (!masterForm.name || !masterForm.photo || !masterForm.bio || masterForm.experience <= 0) {
+        if (!masterForm.name || !masterForm.bio || masterForm.experience <= 0) {
           throw new Error("Заполните форму мастера полностью.");
         }
-        await adminCreateMaster(masterForm);
+        await adminCreateMaster({
+          ...masterForm,
+          photo: masterForm.photo || "stub://master-photo"
+        });
         setMasterForm(emptyMaster);
       },
       "Мастер добавлен."
@@ -262,14 +268,6 @@ export function AdminDashboard() {
                 <option value="waterproofing">waterproofing</option>
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="srv-img">Ссылка на фото</label>
-              <input
-                id="srv-img"
-                value={serviceForm.imageUrl}
-                onChange={(event) => setServiceForm((state) => ({ ...state, imageUrl: event.target.value }))}
-              />
-            </div>
           </div>
           <button className="cta-button" type="submit">
             Добавить услугу
@@ -361,14 +359,6 @@ export function AdminDashboard() {
               id="m-name"
               value={masterForm.name}
               onChange={(event) => setMasterForm((state) => ({ ...state, name: event.target.value }))}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="m-photo">Фото URL</label>
-            <input
-              id="m-photo"
-              value={masterForm.photo}
-              onChange={(event) => setMasterForm((state) => ({ ...state, photo: event.target.value }))}
             />
           </div>
           <div className="field">
@@ -533,3 +523,4 @@ export function AdminDashboard() {
     </div>
   );
 }
+

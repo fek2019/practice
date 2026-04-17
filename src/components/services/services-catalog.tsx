@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatCurrency, getCategoryLabel, getRepairTypeLabel } from "@/lib/format";
+import {
+  formatCurrency,
+  getCategoryLabel,
+  getRepairTypeLabel
+} from "@/lib/format";
 import { listServices } from "@/lib/stubs/api";
 import { RepairType, Service, WatchCategory } from "@/types";
 
@@ -55,7 +59,9 @@ export function ServicesCatalog() {
           <select
             id="cat"
             value={category}
-            onChange={(event) => setCategory(event.target.value as WatchCategory | "all")}
+            onChange={(event) =>
+              setCategory(event.target.value as WatchCategory | "all")
+            }
           >
             {categoryOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -69,7 +75,9 @@ export function ServicesCatalog() {
           <select
             id="repair"
             value={repairType}
-            onChange={(event) => setRepairType(event.target.value as RepairType | "all")}
+            onChange={(event) =>
+              setRepairType(event.target.value as RepairType | "all")
+            }
           >
             {repairTypeOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -80,7 +88,13 @@ export function ServicesCatalog() {
         </div>
         <div className="field">
           <label htmlFor="min">Мин. цена</label>
-          <input id="min" type="number" min={0} value={minPrice} onChange={(event) => setMinPrice(event.target.value)} />
+          <input
+            id="min"
+            type="number"
+            min={0}
+            value={minPrice}
+            onChange={(event) => setMinPrice(event.target.value)}
+          />
         </div>
         <div className="field">
           <label htmlFor="max">Макс. цена</label>
@@ -97,8 +111,12 @@ export function ServicesCatalog() {
       <div className="cards-grid service-cards-grid">
         {loading
           ? skeletonCards.map((item) => (
-              <article key={`skeleton-${item}`} className="card service-card services-card services-card-skeleton" aria-hidden="true">
-                <div className="service-skeleton-image" />
+              <article
+                key={`skeleton-${item}`}
+                className="card service-card services-card services-card-skeleton"
+                aria-hidden="true"
+              >
+                <div className="card-spark service-skeleton-spark" />
                 <div className="badge-row">
                   <span className="service-skeleton-chip" />
                   <span className="service-skeleton-chip" />
@@ -112,18 +130,30 @@ export function ServicesCatalog() {
                 </div>
               </article>
             ))
-          : services.map((service) => (
-              <article key={service.id} className="card service-card services-card" data-reveal="up">
-                <img className="service-image" src={service.imageUrl} alt={service.name} loading="lazy" />
+          : services.map((service, index) => (
+              <article
+                key={service.id}
+                className="card service-card services-card"
+                data-reveal="up"
+                style={{ ["--delay" as string]: `${index * 70}ms` }}
+              >
+                <div className="card-spark" aria-hidden="true" />
                 <div className="badge-row">
-                  <span className="small-badge">{getCategoryLabel(service.category)}</span>
-                  <span className="small-badge">{getRepairTypeLabel(service.repairType)}</span>
+                  <span className="small-badge">
+                    {getCategoryLabel(service.category)}
+                  </span>
+                  <span className="small-badge">
+                    {getRepairTypeLabel(service.repairType)}
+                  </span>
                 </div>
                 <h3>{service.name}</h3>
                 <p className="service-description">{service.description}</p>
                 <div className="actions-row">
                   <span className="price">от {formatCurrency(service.price)}</span>
-                  <Link href={`/booking?serviceId=${service.id}`} className="cta-button small">
+                  <Link
+                    href={`/booking?serviceId=${service.id}`}
+                    className="cta-button small"
+                  >
                     Записаться
                   </Link>
                 </div>
@@ -132,7 +162,10 @@ export function ServicesCatalog() {
       </div>
 
       {!loading && services.length === 0 ? (
-        <div className="empty-state">Ничего не найдено по выбранным фильтрам. Попробуйте расширить диапазон цены.</div>
+        <div className="empty-state">
+          Ничего не найдено по выбранным фильтрам. Попробуйте расширить диапазон
+          цены.
+        </div>
       ) : null}
     </>
   );

@@ -6,7 +6,10 @@ export function SiteFooter() {
       <div className="container footer-grid">
         <div>
           <h3>Watch Lab</h3>
-          <p>Ремонт часов любой сложности. Гарантия, прозрачная цена и бережный подход к каждому механизму.</p>
+          <p>
+            Премиальный сервис ремонта часов. Работаем над новой структурой
+            контента и постепенно обновляем все публичные разделы.
+          </p>
         </div>
         <div>
           <h4>Разделы</h4>
@@ -27,15 +30,9 @@ export function SiteFooter() {
         </div>
         <div>
           <h4>Контакты</h4>
-          <ul>
-            <li>Москва, ул. Покровка, 18</li>
-            <li>+7 (495) 120-40-40</li>
-            <li>hello@watchlab.ru</li>
-            <li>Ежедневно 10:00-19:00</li>
-          </ul>
+          <div className="footer-empty-slot" aria-hidden="true" />
         </div>
       </div>
     </footer>
   );
 }
-

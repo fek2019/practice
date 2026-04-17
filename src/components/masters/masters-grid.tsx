@@ -30,8 +30,12 @@ export function MastersGrid() {
     return (
       <div className="cards-grid masters-grid masters-skeleton-grid">
         {masterSkeleton.map((item) => (
-          <article key={`master-skeleton-${item}`} className="card master-card masters-card master-card-skeleton" aria-hidden="true">
-            <div className="master-skeleton-photo" />
+          <article
+            key={`master-skeleton-${item}`}
+            className="card master-card masters-card master-card-skeleton"
+            aria-hidden="true"
+          >
+            <div className="card-spark master-skeleton-spark" />
             <div className="badge-row">
               <span className="master-skeleton-chip" />
               <span className="master-skeleton-chip" />
@@ -58,10 +62,12 @@ export function MastersGrid() {
           data-reveal="up"
           style={{ ["--delay" as string]: `${index * 70}ms` }}
         >
-          <img className="master-photo" src={master.photo} alt={master.name} loading="lazy" />
+          <div className="card-spark" aria-hidden="true" />
           <h3>{master.name}</h3>
           <div className="badge-row">
-            <span className="small-badge">{getSpecializationLabel(master.specialization)}</span>
+            <span className="small-badge">
+              {getSpecializationLabel(master.specialization)}
+            </span>
             <span className="small-badge">{master.experience} лет опыта</span>
             <span className="small-badge rating">★ {master.rating.toFixed(1)}</span>
           </div>

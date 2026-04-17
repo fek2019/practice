@@ -61,3 +61,4 @@
  GET /account/master 200 in 403ms
  ✓ Compiled /admin in 291ms (482 modules)
  GET /admin 200 in 413ms
+^C^C
