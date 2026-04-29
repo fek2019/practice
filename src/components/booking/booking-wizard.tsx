@@ -2,8 +2,8 @@
 
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { createAppointment, getAvailableSlots, listMasters, listServices } from "@/lib/api-client";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { createAppointment, getAvailableSlots, listMasters, listServices } from "@/lib/stubs/api";
 import { Appointment, Master, Service } from "@/types";
 
 const steps = ["Услуга", "Мастер", "Дата и время", "Контакты", "Подтверждение"];
@@ -140,7 +140,7 @@ export function BookingWizard() {
           Номер заявки: {success.id}. Дата: {formatDate(success.date)}, время: {success.timeSlot}.
         </div>
         <p className="hint" style={{ marginTop: "0.8rem" }}>
-          Уведомления клиенту и мастеру отправляются через stub-функции в `src/lib/stubs/api.ts`.
+          Уведомления клиенту и мастеру отправляются через серверный backend.
         </p>
       </div>
     );

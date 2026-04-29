@@ -44,6 +44,7 @@ export interface User {
   email: string;
   role: UserRole;
   password?: string;
+  passwordHash?: string;
   appointments: string[];
   linkedMasterId?: string;
 }
@@ -80,6 +81,8 @@ export interface AuthSession {
   email: string;
   role: UserRole;
   linkedMasterId?: string;
+  token?: string;
+  expiresAt?: string;
 }
 
 export interface PopularServiceStat {

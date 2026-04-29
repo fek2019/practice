@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { listClientAppointments, listMasters, listServices } from "@/lib/api-client";
+import { getSession } from "@/lib/auth-client";
 import { formatDate } from "@/lib/format";
-import { getSession } from "@/lib/stubs/auth";
-import { listClientAppointments, listMasters, listServices } from "@/lib/stubs/api";
 import { Appointment, AuthSession, Master, Service } from "@/types";
 import { StatusBadge } from "../ui/status-badge";
 
@@ -28,7 +28,7 @@ export function ClientDashboard() {
     const loadData = async () => {
       setLoading(true);
       const [appointmentData, serviceData, masterData] = await Promise.all([
-        listClientAppointments({ phone: session.phone, email: session.email }),
+        listClientAppointments(),
         listServices(),
         listMasters()
       ]);

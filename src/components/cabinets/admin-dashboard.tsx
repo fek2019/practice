@@ -1,8 +1,6 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { formatCurrency } from "@/lib/format";
-import { getSession } from "@/lib/stubs/auth";
 import {
   adminCreateMaster,
   adminCreateService,
@@ -15,7 +13,9 @@ import {
   listAllAppointments,
   listMasters,
   listServices
-} from "@/lib/stubs/api";
+} from "@/lib/api-client";
+import { getSession } from "@/lib/auth-client";
+import { formatCurrency } from "@/lib/format";
 import { AdminStats, Appointment, AuthSession, Master, RepairType, Service, WatchCategory } from "@/types";
 
 const emptyService: Omit<Service, "id"> = {
@@ -152,7 +152,7 @@ export function AdminDashboard() {
     <div className="panel admin-dashboard-shell" data-reveal="up">
       <h2>Личный кабинет администратора</h2>
       <p className="hint" style={{ marginBottom: "1rem" }}>
-        Управляйте услугами, мастерами и ценами. Статистика строится по коллекции заявок (mock).
+        Управляйте услугами, мастерами и ценами. Статистика строится по серверным данным.
       </p>
 
       <div className="stats-grid">
@@ -518,7 +518,7 @@ export function AdminDashboard() {
       {message ? <p className="notice success">{message}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
       <p className="hint" style={{ marginTop: "0.9rem" }}>
-        Все действия идут в mock API. Точки интеграции backend: `src/lib/stubs/api.ts` и `src/lib/stubs/auth.ts`.
+        Все действия проходят через Next API routes. Источник данных выбирается переменной `APP_DATA_SOURCE`.
       </p>
     </div>
   );

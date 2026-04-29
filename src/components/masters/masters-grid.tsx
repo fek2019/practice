@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCategoryLabel } from "@/lib/format";
-import { listMasters } from "@/lib/stubs/api";
+import { listMasters } from "@/lib/api-client";
 import { Master } from "@/types";
 
 const getSpecializationLabel = (value: Master["specialization"]) => {

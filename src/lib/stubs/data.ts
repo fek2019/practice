@@ -192,6 +192,7 @@ export const mockDb: {
       phone: "+7 999 123 45 67",
       email: "ivan.petrov@example.com",
       role: "client",
+      password: "client123",
       appointments: ["a-1001", "a-1004"]
     },
     {
@@ -200,6 +201,7 @@ export const mockDb: {
       phone: "+7 900 111 22 33",
       email: "romanov.master@example.com",
       role: "master",
+      password: "master123",
       appointments: ["a-1001"],
       linkedMasterId: "m-1"
     },

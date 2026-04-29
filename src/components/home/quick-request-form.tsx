@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { createQuickRequest, listServices } from "@/lib/stubs/api";
+import { createQuickRequest, listServices } from "@/lib/api-client";
 import { Service } from "@/types";
 
 export function QuickRequestForm() {
@@ -82,7 +82,7 @@ export function QuickRequestForm() {
       <button className="cta-button" type="submit" disabled={loading}>
         {loading ? "Отправка..." : "Отправить заявку"}
       </button>
-      <p className="hint">Отправка уходит в mock API, затем замените на Firebase Function.</p>
+      <p className="hint">Заявка уходит в серверный backend и сохраняется в выбранном источнике данных.</p>
       {message ? <p className="notice success">{message}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
     </form>

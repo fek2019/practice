@@ -7,7 +7,7 @@ import {
   getCategoryLabel,
   getRepairTypeLabel
 } from "@/lib/format";
-import { listServices } from "@/lib/stubs/api";
+import { listServices } from "@/lib/api-client";
 import { RepairType, Service, WatchCategory } from "@/types";
 
 const categoryOptions: Array<{ label: string; value: WatchCategory | "all" }> = [

@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { listMasterAppointments, listServices, updateAppointmentStatus } from "@/lib/api-client";
+import { getSession } from "@/lib/auth-client";
 import { formatDate, getStatusLabel } from "@/lib/format";
-import { getSession } from "@/lib/stubs/auth";
-import { listMasterAppointments, listServices, updateAppointmentStatus } from "@/lib/stubs/api";
 import { Appointment, AppointmentStatus, AuthSession, Service } from "@/types";
 import { StatusBadge } from "../ui/status-badge";
 

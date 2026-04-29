@@ -5,7 +5,7 @@ import {
   getCategoryLabel,
   getRepairTypeLabel
 } from "@/lib/format";
-import { getMasterById, listServices } from "@/lib/stubs/api";
+import { getRepository } from "@/server/repositories";
 import { Master } from "@/types";
 
 interface MasterDetailPageProps {
@@ -19,13 +19,14 @@ const specializationLabel = (value: Master["specialization"]) =>
 
 export default async function MasterDetailPage({ params }: MasterDetailPageProps) {
   const { id } = await params;
-  const master = await getMasterById(id);
+  const repository = getRepository();
+  const master = await repository.getMasterById(id);
 
   if (!master) {
     notFound();
   }
 
-  const services = await listServices();
+  const services = await repository.listServices();
   const relatedServices =
     master.specialization === "universal"
       ? services.slice(0, 4)
