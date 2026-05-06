@@ -9,3 +9,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Local SQLite database files
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

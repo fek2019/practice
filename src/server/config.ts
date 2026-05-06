@@ -1,10 +1,20 @@
-export type DataSource = "mock" | "supabase";
+export type DataSource = "mock" | "sqlite" | "supabase";
 
-export const getDataSource = (): DataSource =>
-  process.env.APP_DATA_SOURCE === "supabase" ? "supabase" : "mock";
+export const getDataSource = (): DataSource => {
+  const raw = process.env.APP_DATA_SOURCE?.toLowerCase();
+  if (raw === "supabase") return "supabase";
+  if (raw === "mock") return "mock";
+  // Default: real local SQLite database (persistent, no external services).
+  return "sqlite";
+};
 
 export const isSupabaseConfigured = () =>
   Boolean((process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) && process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+export const getSqliteFilePath = () =>
+  process.env.APP_SQLITE_PATH && process.env.APP_SQLITE_PATH.trim().length > 0
+    ? process.env.APP_SQLITE_PATH
+    : "data/watchlab.db";
 
 export const isDemoAuthEnabled = () => process.env.ENABLE_DEMO_AUTH !== "false";
 
