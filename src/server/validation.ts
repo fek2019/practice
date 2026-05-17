@@ -12,7 +12,7 @@ const repairTypesWithAll: Array<RepairType | "all"> = [
   "waterproofing",
   "all"
 ];
-const statuses: AppointmentStatus[] = ["pending", "in-progress", "ready", "done"];
+const statuses: AppointmentStatus[] = ["pending", "in-progress", "ready", "done", "cancelled"];
 const roles: UserRole[] = ["client", "master", "admin"];
 const masterSpecializations: Master["specialization"][] = ["mechanical", "quartz", "smart", "universal"];
 

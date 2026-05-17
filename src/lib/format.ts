@@ -15,10 +15,11 @@ const repairTypeLabels: Record<RepairType, string> = {
 };
 
 const statusLabels: Record<AppointmentStatus, string> = {
-  pending: "Принят в работу",
-  "in-progress": "В процессе",
-  ready: "Готов к выдаче",
-  done: "Выдан клиенту"
+  pending: "Ожидает",
+  "in-progress": "В работе",
+  ready: "Готово",
+  done: "Завершено",
+  cancelled: "Отменено"
 };
 
 export const formatCurrency = (value: number) =>

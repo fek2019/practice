@@ -5,6 +5,7 @@ import {
   CreateAppointmentInput,
   Master,
   QuickRequest,
+  Review,
   Service,
   ServiceFilters,
   User,
@@ -39,10 +40,18 @@ export interface WorkshopRepository {
   listMasterAppointments(masterId: string): Promise<Appointment[]>;
   listAllAppointments(): Promise<Appointment[]>;
   updateAppointmentStatus(appointmentId: string, status: AppointmentStatus): Promise<Appointment>;
-  getAdminStats(): Promise<AdminStats>;
+  deleteAppointment(appointmentId: string): Promise<void>;
+  getAdminStats(period?: { from?: string; to?: string }): Promise<AdminStats>;
 
+  getUserById(userId: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
   getUserByPhone(phone: string): Promise<User | null>;
   getFirstUserByRole(role: UserRole): Promise<User | null>;
+  listUsers(): Promise<User[]>;
+  updateUser(userId: string, patch: Partial<Pick<User, "name" | "phone" | "email" | "role" | "linkedMasterId" | "isBanned">>): Promise<User>;
+  deleteUser(userId: string): Promise<void>;
   createClientUser(input: { name: string; phone?: string; email?: string; passwordHash?: string }): Promise<User>;
+
+  listReviewsByClient(userId: string): Promise<Review[]>;
+  createReview(input: Omit<Review, "id" | "createdAt">): Promise<Review>;
 }

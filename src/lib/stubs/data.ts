@@ -1,4 +1,4 @@
-import { Appointment, Master, QuickRequest, Service, User } from "@/types";
+import { Appointment, Master, QuickRequest, Review, Service, User } from "@/types";
 
 export const mockDb: {
   services: Service[];
@@ -6,6 +6,7 @@ export const mockDb: {
   appointments: Appointment[];
   users: User[];
   quickRequests: QuickRequest[];
+  reviews: Review[];
 } = {
   services: [
     {
@@ -215,6 +216,7 @@ export const mockDb: {
       appointments: []
     }
   ],
-  quickRequests: []
+  quickRequests: [],
+  reviews: []
 };
 

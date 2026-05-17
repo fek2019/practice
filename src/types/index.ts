@@ -1,7 +1,7 @@
 export type WatchCategory = "mechanical" | "quartz" | "smart";
 export type RepairType = "glass" | "cleaning" | "restoration" | "battery" | "waterproofing";
 export type UserRole = "client" | "master" | "admin";
-export type AppointmentStatus = "pending" | "in-progress" | "ready" | "done";
+export type AppointmentStatus = "pending" | "in-progress" | "ready" | "done" | "cancelled";
 
 export interface Service {
   id: string;
@@ -43,10 +43,21 @@ export interface User {
   phone: string;
   email: string;
   role: UserRole;
+  isBanned?: boolean;
   password?: string;
   passwordHash?: string;
   appointments: string[];
   linkedMasterId?: string;
+}
+
+export interface Review {
+  id: string;
+  appointmentId: string;
+  masterId: string;
+  clientUserId: string;
+  rating: number;
+  text: string;
+  createdAt: string;
 }
 
 export interface QuickRequest {

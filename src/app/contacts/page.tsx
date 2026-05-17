@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ContactFeedbackForm } from "@/components/contacts/contact-feedback-form";
+import { LocationSwitcher } from "@/components/contacts/location-switcher";
 
 const heroHighlights = [
   "Ответ в течение 15 минут",
@@ -32,12 +33,6 @@ const contactChannels = [
     note: "Фото механизма и предварительная оценка",
     href: "https://wa.me/79032002137"
   }
-];
-
-const workshopSchedule = [
-  { day: "Понедельник — Пятница", hours: "10:00 — 21:00" },
-  { day: "Суббота", hours: "11:00 — 20:00" },
-  { day: "Воскресенье", hours: "12:00 — 19:00" }
 ];
 
 const branches = [
@@ -183,60 +178,7 @@ export default function ContactsPage() {
 
       <section className="section contacts-main-section">
         <div className="container">
-          <div className="split contacts-layout">
-            <article className="panel contacts-main-card" data-reveal="left">
-              <span className="small-badge">Главная мастерская</span>
-              <h3>Москва, ул. Покровка, 12</h3>
-              <div className="contacts-list">
-                <p>
-                  <strong>Метро:</strong> Китай-город, 5 минут пешком
-                </p>
-                <p>
-                  <strong>Телефон:</strong>{" "}
-                  <a href="tel:+74952002137">+7 (495) 200-21-37</a>
-                </p>
-                <p>
-                  <strong>Email:</strong>{" "}
-                  <a href="mailto:hello@watchlab.ru">hello@watchlab.ru</a>
-                </p>
-              </div>
-              <div className="contacts-schedule">
-                <h4>Часы работы</h4>
-                <ul>
-                  {workshopSchedule.map((item) => (
-                    <li key={item.day}>
-                      <span>{item.day}</span>
-                      <strong>{item.hours}</strong>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <p className="contacts-note hint">
-                Приемка часов производится без записи, ремонт — по слоту в
-                личном кабинете. Для дорогих калибров рекомендуем заранее
-                согласовать визит с мастером.
-              </p>
-            </article>
-
-            <article className="card contacts-map-card" data-reveal="right">
-              <h3>Как нас найти</h3>
-              <p className="hint">
-                Декоративная мини-карта главной точки. Для полноценного
-                маршрута используйте навигатор по адресу Покровка, 12.
-              </p>
-              <div className="contacts-map-stub" aria-hidden="true" />
-              <div className="contacts-map-meta">
-                <div>
-                  <span>Координаты</span>
-                  <strong>55.7588° N, 37.6498° E</strong>
-                </div>
-                <div>
-                  <span>Парковка</span>
-                  <strong>Платная, во дворе БЦ</strong>
-                </div>
-              </div>
-            </article>
-          </div>
+          <LocationSwitcher />
         </div>
       </section>
 

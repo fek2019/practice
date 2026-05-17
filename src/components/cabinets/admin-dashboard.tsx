@@ -6,17 +6,35 @@ import {
   adminCreateService,
   adminDeleteMaster,
   adminDeleteService,
+  adminDeleteUser,
   adminSetServicePrice,
   adminUpdateMaster,
   adminUpdateService,
+  adminUpdateUser,
+  deleteAppointment,
   getAdminStats,
+  getProfile,
   listAllAppointments,
   listMasters,
-  listServices
+  listServices,
+  listUsers,
+  updateAppointmentStatus,
+  updateProfile
 } from "@/lib/api-client";
 import { getSession } from "@/lib/auth-client";
-import { formatCurrency } from "@/lib/format";
-import { AdminStats, Appointment, AuthSession, Master, RepairType, Service, WatchCategory } from "@/types";
+import { formatCurrency, getStatusLabel } from "@/lib/format";
+import {
+  AdminStats,
+  Appointment,
+  AppointmentStatus,
+  AuthSession,
+  Master,
+  RepairType,
+  Service,
+  User,
+  WatchCategory
+} from "@/types";
+import { StatusBadge } from "../ui/status-badge";
 
 const emptyService: Omit<Service, "id"> = {
   name: "",
@@ -37,15 +55,22 @@ const emptyMaster: Omit<Master, "id"> = {
   bio: ""
 };
 
+const statusOptions: AppointmentStatus[] = ["pending", "in-progress", "ready", "done", "cancelled"];
+
 export function AdminDashboard() {
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [profile, setProfile] = useState<User | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [masters, setMasters] = useState<Master[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [serviceForm, setServiceForm] = useState<Omit<Service, "id">>(emptyService);
   const [masterForm, setMasterForm] = useState<Omit<Master, "id">>(emptyMaster);
+  const [profileForm, setProfileForm] = useState({ name: "", phone: "", email: "" });
   const [priceEditor, setPriceEditor] = useState<Record<string, string>>({});
+  const [period, setPeriod] = useState({ from: "", to: "" });
+  const [userRoleFilter, setUserRoleFilter] = useState<"all" | User["role"]>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -55,20 +80,23 @@ export function AdminDashboard() {
   }, []);
 
   const reload = useCallback(async () => {
-    const [statsData, serviceData, masterData, appointmentData] = await Promise.all([
-      getAdminStats(),
+    const [profileData, statsData, serviceData, masterData, appointmentData, userData] = await Promise.all([
+      getProfile(),
+      getAdminStats(period),
       listServices(),
       listMasters(),
-      listAllAppointments()
+      listAllAppointments(),
+      listUsers()
     ]);
+    setProfile(profileData);
     setStats(statsData);
     setServices(serviceData);
     setMasters(masterData);
     setAppointments(appointmentData);
-    setPriceEditor(
-      Object.fromEntries(serviceData.map((service) => [service.id, service.price.toString()])) as Record<string, string>
-    );
-  }, []);
+    setUsers(userData);
+    setProfileForm({ name: profileData.name, phone: profileData.phone, email: profileData.email });
+    setPriceEditor(Object.fromEntries(serviceData.map((service) => [service.id, service.price.toString()])));
+  }, [period]);
 
   useEffect(() => {
     if (!session || session.role !== "admin") {
@@ -83,16 +111,16 @@ export function AdminDashboard() {
     load();
   }, [session, reload]);
 
+  const filteredUsers = useMemo(
+    () => users.filter((user) => userRoleFilter === "all" || user.role === userRoleFilter),
+    [users, userRoleFilter]
+  );
   const maxPopular = useMemo(() => Math.max(...(stats?.popularServices.map((item) => item.bookings) ?? [1])), [stats]);
   const maxMasterLoad = useMemo(() => Math.max(...(stats?.masterLoad.map((item) => item.orders) ?? [1])), [stats]);
 
-  const clearStateMessages = () => {
+  const withRefresh = async (action: () => Promise<void>, successText: string) => {
     setError("");
     setMessage("");
-  };
-
-  const withRefresh = async (action: () => Promise<void>, successText: string) => {
-    clearStateMessages();
     try {
       await action();
       await reload();
@@ -104,377 +132,200 @@ export function AdminDashboard() {
 
   const onCreateService = async (event: FormEvent) => {
     event.preventDefault();
-    await withRefresh(
-      async () => {
-        if (!serviceForm.name || !serviceForm.description || serviceForm.price <= 0) {
-          throw new Error("Заполните форму услуги полностью.");
-        }
-        await adminCreateService({
-          ...serviceForm,
-          imageUrl: serviceForm.imageUrl || "stub://service-image"
-        });
-        setServiceForm(emptyService);
-      },
-      "Услуга добавлена."
-    );
+    await withRefresh(async () => {
+      await adminCreateService(serviceForm);
+      setServiceForm(emptyService);
+    }, "Услуга добавлена.");
   };
 
   const onCreateMaster = async (event: FormEvent) => {
     event.preventDefault();
-    await withRefresh(
-      async () => {
-        if (!masterForm.name || !masterForm.bio || masterForm.experience <= 0) {
-          throw new Error("Заполните форму мастера полностью.");
-        }
-        await adminCreateMaster({
-          ...masterForm,
-          photo: masterForm.photo || "stub://master-photo"
-        });
-        setMasterForm(emptyMaster);
-      },
-      "Мастер добавлен."
-    );
+    await withRefresh(async () => {
+      await adminCreateMaster(masterForm);
+      setMasterForm(emptyMaster);
+    }, "Мастер добавлен.");
+  };
+
+  const onProfileSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    await withRefresh(async () => {
+      await updateProfile(profileForm);
+    }, "Данные аккаунта обновлены.");
   };
 
   if (!session || session.role !== "admin") {
-    return (
-      <div className="empty-state">
-        Доступ запрещен. Для входа в админку используйте `/account` и войдите под `admin@watchlab.local` / `admin123`.
-      </div>
-    );
+    return <div className="empty-state">Доступ запрещен. Нужна роль администратора.</div>;
   }
 
-  if (loading || !stats) {
+  if (loading || !stats || !profile) {
     return <p className="hint">Загружаем админ-панель...</p>;
   }
 
   return (
-    <div className="panel admin-dashboard-shell" data-reveal="up">
-      <h2>Личный кабинет администратора</h2>
-      <p className="hint" style={{ marginBottom: "1rem" }}>
-        Управляйте услугами, мастерами и ценами. Статистика строится по серверным данным.
-      </p>
-
-      <div className="stats-grid">
-        <article className="stat-card">
-          <p>Количество записей</p>
-          <strong className="value">{stats.totalAppointments}</strong>
-        </article>
-        <article className="stat-card">
-          <p>Выручка (завершенные)</p>
-          <strong className="value">{formatCurrency(stats.totalRevenue)}</strong>
-        </article>
-        <article className="stat-card">
-          <p>Услуг в каталоге</p>
-          <strong className="value">{services.length}</strong>
-        </article>
-      </div>
-
-      <div className="dashboard-grid" style={{ marginTop: "1rem" }}>
-        <article className="card">
-          <h3>Популярные услуги</h3>
-          <div className="bar-chart">
-            {stats.popularServices.map((item) => (
-              <div className="bar-item" key={item.serviceId}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>{item.serviceName}</span>
-                  <strong>{item.bookings}</strong>
-                </div>
-                <div className="track">
-                  <div className="fill" style={{ width: `${(item.bookings / maxPopular) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-        <article className="card">
-          <h3>Загрузка мастеров</h3>
-          <div className="bar-chart">
-            {stats.masterLoad.map((item) => (
-              <div className="bar-item" key={item.masterId}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>{item.masterName}</span>
-                  <strong>{item.orders}</strong>
-                </div>
-                <div className="track">
-                  <div className="fill" style={{ width: `${(item.orders / maxMasterLoad) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-      </div>
-
-      <section style={{ marginTop: "1.4rem" }}>
-        <h3>Управление услугами (CRUD)</h3>
-        <form className="card form-grid" onSubmit={onCreateService}>
+    <div className="cabinet-shell" data-reveal="up">
+      <section className="panel cabinet-profile-card">
+        <div>
+          <span className="small-badge">Профиль администратора</span>
+          <h2>{profile.name}</h2>
+          <p className="hint">{profile.email || profile.phone}</p>
+        </div>
+        <form className="form-grid cabinet-profile-form" onSubmit={onProfileSubmit}>
           <div className="field">
-            <label htmlFor="srv-name">Название</label>
-            <input
-              id="srv-name"
-              value={serviceForm.name}
-              onChange={(event) => setServiceForm((state) => ({ ...state, name: event.target.value }))}
-            />
+            <label htmlFor="admin-name">Имя</label>
+            <input id="admin-name" value={profileForm.name} onChange={(event) => setProfileForm((state) => ({ ...state, name: event.target.value }))} />
           </div>
           <div className="field">
-            <label htmlFor="srv-desc">Описание</label>
-            <textarea
-              id="srv-desc"
-              rows={3}
-              value={serviceForm.description}
-              onChange={(event) => setServiceForm((state) => ({ ...state, description: event.target.value }))}
-            />
+            <label htmlFor="admin-phone">Телефон</label>
+            <input id="admin-phone" value={profileForm.phone} onChange={(event) => setProfileForm((state) => ({ ...state, phone: event.target.value }))} />
           </div>
-          <div className="filters-grid">
-            <div className="field">
-              <label htmlFor="srv-price">Цена</label>
-              <input
-                id="srv-price"
-                type="number"
-                min={0}
-                value={serviceForm.price}
-                onChange={(event) =>
-                  setServiceForm((state) => ({ ...state, price: Number(event.target.value) || 0 }))
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="srv-cat">Категория</label>
-              <select
-                id="srv-cat"
-                value={serviceForm.category}
-                onChange={(event) =>
-                  setServiceForm((state) => ({ ...state, category: event.target.value as WatchCategory }))
-                }
-              >
-                <option value="mechanical">mechanical</option>
-                <option value="quartz">quartz</option>
-                <option value="smart">smart</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="srv-type">Тип ремонта</label>
-              <select
-                id="srv-type"
-                value={serviceForm.repairType}
-                onChange={(event) =>
-                  setServiceForm((state) => ({ ...state, repairType: event.target.value as RepairType }))
-                }
-              >
-                <option value="glass">glass</option>
-                <option value="cleaning">cleaning</option>
-                <option value="restoration">restoration</option>
-                <option value="battery">battery</option>
-                <option value="waterproofing">waterproofing</option>
-              </select>
-            </div>
+          <div className="field">
+            <label htmlFor="admin-email">Email</label>
+            <input id="admin-email" value={profileForm.email} onChange={(event) => setProfileForm((state) => ({ ...state, email: event.target.value }))} />
           </div>
-          <button className="cta-button" type="submit">
-            Добавить услугу
-          </button>
+          <button className="cta-button" type="submit">Сохранить изменения</button>
         </form>
+      </section>
 
-        <div className="table-wrap card" style={{ marginTop: "0.8rem" }}>
+      <section className="card">
+        <div className="cabinet-section-head">
+          <h3>Статистика</h3>
+          <div className="filters-grid compact-filters">
+            <div className="field">
+              <label htmlFor="stats-from">С</label>
+              <input id="stats-from" type="date" value={period.from} onChange={(event) => setPeriod((state) => ({ ...state, from: event.target.value }))} />
+            </div>
+            <div className="field">
+              <label htmlFor="stats-to">По</label>
+              <input id="stats-to" type="date" value={period.to} onChange={(event) => setPeriod((state) => ({ ...state, to: event.target.value }))} />
+            </div>
+          </div>
+        </div>
+        <div className="stats-grid">
+          <article className="stat-card">
+            <p>Количество записей</p>
+            <strong className="value">{stats.totalAppointments}</strong>
+          </article>
+          <article className="stat-card">
+            <p>Выручка</p>
+            <strong className="value">{formatCurrency(stats.totalRevenue)}</strong>
+          </article>
+          <article className="stat-card">
+            <p>Услуг в каталоге</p>
+            <strong className="value">{services.length}</strong>
+          </article>
+        </div>
+        <div className="dashboard-grid" style={{ marginTop: "1rem" }}>
+          <article className="card">
+            <h3>Популярные услуги</h3>
+            <div className="bar-chart">
+              {stats.popularServices.map((item) => (
+                <div className="bar-item" key={item.serviceId}>
+                  <div className="bar-row"><span>{item.serviceName}</span><strong>{item.bookings}</strong></div>
+                  <div className="track"><div className="fill" style={{ width: `${(item.bookings / maxPopular) * 100}%` }} /></div>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="card">
+            <h3>Загрузка мастеров</h3>
+            <div className="bar-chart">
+              {stats.masterLoad.map((item) => (
+                <div className="bar-item" key={item.masterId}>
+                  <div className="bar-row"><span>{item.masterName}</span><strong>{item.orders}</strong></div>
+                  <div className="track"><div className="fill" style={{ width: `${(item.orders / maxMasterLoad) * 100}%` }} /></div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="cabinet-section-head">
+          <h3>Пользователи</h3>
+          <div className="field compact-select">
+            <label htmlFor="role-filter">Сортировка</label>
+            <select id="role-filter" value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value as typeof userRoleFilter)}>
+              <option value="all">Все</option>
+              <option value="client">Клиенты</option>
+              <option value="master">Мастера</option>
+              <option value="admin">Админы</option>
+            </select>
+          </div>
+        </div>
+        <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Услуга</th>
-                <th>Цена</th>
-                <th>Управление</th>
+                <th>Пользователь</th>
+                <th>Роль</th>
+                <th>Связанный мастер</th>
+                <th>Доступ</th>
+                <th>Действия</th>
               </tr>
             </thead>
             <tbody>
-              {services.map((service) => (
-                <tr key={service.id}>
-                  <td>{service.name}</td>
+              {filteredUsers.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.name}<br /><span className="hint">{user.email || user.phone}</span></td>
                   <td>
-                    <input
-                      style={{ maxWidth: "120px" }}
-                      type="number"
-                      value={priceEditor[service.id] ?? service.price}
+                    <select
+                      value={user.role}
                       onChange={(event) =>
-                        setPriceEditor((state) => ({ ...state, [service.id]: event.target.value }))
+                        withRefresh(
+                          () =>
+                            adminUpdateUser(user.id, {
+                              role: event.target.value as User["role"],
+                              linkedMasterId: event.target.value === "master" ? user.linkedMasterId : ""
+                            }).then(() => undefined),
+                          "Роль пользователя обновлена."
+                        )
                       }
-                    />
+                    >
+                      <option value="client">Клиент</option>
+                      <option value="master">Мастер</option>
+                      <option value="admin">Админ</option>
+                    </select>
                   </td>
+                  <td>
+                    {user.role === "master" ? (
+                      <select
+                        value={user.linkedMasterId ?? ""}
+                        onChange={(event) =>
+                          withRefresh(
+                            () => adminUpdateUser(user.id, { linkedMasterId: event.target.value }).then(() => undefined),
+                            "Профиль мастера назначен."
+                          )
+                        }
+                      >
+                        <option value="">Не выбран</option>
+                        {masters.map((master) => (
+                          <option key={master.id} value={master.id}>{master.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="hint">-</span>
+                    )}
+                  </td>
+                  <td>{user.isBanned ? "Заблокирован" : "Активен"}</td>
                   <td>
                     <div className="actions-row">
                       <button
                         type="button"
-                        className="cta-button small"
+                        className="outline-button dark"
                         onClick={() =>
                           withRefresh(
-                            async () => {
-                              await adminSetServicePrice(service.id, Number(priceEditor[service.id] ?? service.price));
-                            },
-                            "Цена обновлена."
+                            () => adminUpdateUser(user.id, { isBanned: !user.isBanned }).then(() => undefined),
+                            user.isBanned ? "Пользователь разблокирован." : "Пользователь заблокирован."
                           )
                         }
                       >
-                        Сохранить цену
+                        {user.isBanned ? "Разбанить" : "Забанить"}
                       </button>
                       <button
                         type="button"
                         className="outline-button dark"
-                        onClick={() =>
-                          withRefresh(
-                            async () => {
-                              await adminDeleteService(service.id);
-                            },
-                            "Услуга удалена."
-                          )
-                        }
-                      >
-                        Удалить
-                      </button>
-                      <button
-                        type="button"
-                        className="outline-button dark"
-                        onClick={() =>
-                          withRefresh(
-                            async () => {
-                              await adminUpdateService(service.id, { description: `${service.description} (обновлено)` });
-                            },
-                            "Описание обновлено."
-                          )
-                        }
-                      >
-                        Быстрое редакт.
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section style={{ marginTop: "1.6rem" }}>
-        <h3>Управление мастерами (CRUD)</h3>
-        <form className="card form-grid" onSubmit={onCreateMaster}>
-          <div className="field">
-            <label htmlFor="m-name">Имя</label>
-            <input
-              id="m-name"
-              value={masterForm.name}
-              onChange={(event) => setMasterForm((state) => ({ ...state, name: event.target.value }))}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="m-bio">Описание</label>
-            <textarea
-              id="m-bio"
-              rows={3}
-              value={masterForm.bio}
-              onChange={(event) => setMasterForm((state) => ({ ...state, bio: event.target.value }))}
-            />
-          </div>
-          <div className="filters-grid">
-            <div className="field">
-              <label htmlFor="m-spec">Специализация</label>
-              <select
-                id="m-spec"
-                value={masterForm.specialization}
-                onChange={(event) =>
-                  setMasterForm((state) => ({
-                    ...state,
-                    specialization: event.target.value as Master["specialization"]
-                  }))
-                }
-              >
-                <option value="mechanical">mechanical</option>
-                <option value="quartz">quartz</option>
-                <option value="smart">smart</option>
-                <option value="universal">universal</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="m-exp">Опыт (лет)</label>
-              <input
-                id="m-exp"
-                type="number"
-                min={1}
-                value={masterForm.experience}
-                onChange={(event) =>
-                  setMasterForm((state) => ({ ...state, experience: Number(event.target.value) || 1 }))
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="m-rate">Рейтинг</label>
-              <input
-                id="m-rate"
-                type="number"
-                min={1}
-                max={5}
-                step={0.1}
-                value={masterForm.rating}
-                onChange={(event) => setMasterForm((state) => ({ ...state, rating: Number(event.target.value) || 4.5 }))}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="m-avail">Доступность</label>
-              <select
-                id="m-avail"
-                value={masterForm.available ? "true" : "false"}
-                onChange={(event) =>
-                  setMasterForm((state) => ({ ...state, available: event.target.value === "true" }))
-                }
-              >
-                <option value="true">Доступен</option>
-                <option value="false">Недоступен</option>
-              </select>
-            </div>
-          </div>
-          <button className="cta-button" type="submit">
-            Добавить мастера
-          </button>
-        </form>
-
-        <div className="table-wrap card" style={{ marginTop: "0.8rem" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Мастер</th>
-                <th>Специализация</th>
-                <th>Доступность</th>
-                <th>Управление</th>
-              </tr>
-            </thead>
-            <tbody>
-              {masters.map((master) => (
-                <tr key={master.id}>
-                  <td>{master.name}</td>
-                  <td>{master.specialization}</td>
-                  <td>{master.available ? "Да" : "Нет"}</td>
-                  <td>
-                    <div className="actions-row">
-                      <button
-                        type="button"
-                        className="cta-button small"
-                        onClick={() =>
-                          withRefresh(
-                            async () => {
-                              await adminUpdateMaster(master.id, { available: !master.available });
-                            },
-                            "Статус доступности обновлен."
-                          )
-                        }
-                      >
-                        Переключить доступ
-                      </button>
-                      <button
-                        type="button"
-                        className="outline-button dark"
-                        onClick={() =>
-                          withRefresh(
-                            async () => {
-                              await adminDeleteMaster(master.id);
-                            },
-                            "Мастер удален."
-                          )
-                        }
+                        onClick={() => withRefresh(() => adminDeleteUser(user.id), "Пользователь удален.")}
                       >
                         Удалить
                       </button>
@@ -487,9 +338,9 @@ export function AdminDashboard() {
         </div>
       </section>
 
-      <section style={{ marginTop: "1.6rem" }}>
-        <h3>Последние записи</h3>
-        <div className="table-wrap card">
+      <section className="card">
+        <h3>Заказы</h3>
+        <div className="table-wrap">
           <table>
             <thead>
               <tr>
@@ -497,17 +348,52 @@ export function AdminDashboard() {
                 <th>Клиент</th>
                 <th>Дата</th>
                 <th>Статус</th>
+                <th>Управление</th>
               </tr>
             </thead>
             <tbody>
-              {appointments.slice(0, 10).map((appointment) => (
+              {appointments.map((appointment) => (
                 <tr key={appointment.id}>
                   <td>{appointment.id}</td>
                   <td>{appointment.clientName}</td>
+                  <td>{appointment.date} {appointment.timeSlot}</td>
+                  <td><StatusBadge status={appointment.status} /></td>
                   <td>
-                    {appointment.date} {appointment.timeSlot}
+                    <div className="actions-row">
+                      <select
+                        value={appointment.status}
+                        onChange={(event) =>
+                          withRefresh(
+                            () => updateAppointmentStatus(appointment.id, event.target.value as AppointmentStatus).then(() => undefined),
+                            "Статус заявки обновлен."
+                          )
+                        }
+                      >
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>{getStatusLabel(status)}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="outline-button dark"
+                        onClick={() =>
+                          withRefresh(
+                            () => updateAppointmentStatus(appointment.id, "cancelled").then(() => undefined),
+                            "Заказ отменен."
+                          )
+                        }
+                      >
+                        Отменить
+                      </button>
+                      <button
+                        type="button"
+                        className="outline-button dark"
+                        onClick={() => withRefresh(() => deleteAppointment(appointment.id), "Заказ удален.")}
+                      >
+                        Удалить
+                      </button>
+                    </div>
                   </td>
-                  <td>{appointment.status}</td>
                 </tr>
               ))}
             </tbody>
@@ -515,12 +401,109 @@ export function AdminDashboard() {
         </div>
       </section>
 
+      <section className="dashboard-grid cabinet-admin-grid">
+        <article className="card">
+          <h3>Управление услугами</h3>
+          <form className="form-grid" onSubmit={onCreateService}>
+            <div className="field">
+              <label htmlFor="srv-name">Название</label>
+              <input id="srv-name" value={serviceForm.name} onChange={(event) => setServiceForm((state) => ({ ...state, name: event.target.value }))} />
+            </div>
+            <div className="field">
+              <label htmlFor="srv-desc">Описание</label>
+              <textarea id="srv-desc" rows={3} value={serviceForm.description} onChange={(event) => setServiceForm((state) => ({ ...state, description: event.target.value }))} />
+            </div>
+            <div className="filters-grid">
+              <div className="field">
+                <label htmlFor="srv-price">Цена</label>
+                <input id="srv-price" type="number" value={serviceForm.price} onChange={(event) => setServiceForm((state) => ({ ...state, price: Number(event.target.value) || 0 }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="srv-cat">Категория</label>
+                <select id="srv-cat" value={serviceForm.category} onChange={(event) => setServiceForm((state) => ({ ...state, category: event.target.value as WatchCategory }))}>
+                  <option value="mechanical">mechanical</option>
+                  <option value="quartz">quartz</option>
+                  <option value="smart">smart</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="srv-type">Тип</label>
+                <select id="srv-type" value={serviceForm.repairType} onChange={(event) => setServiceForm((state) => ({ ...state, repairType: event.target.value as RepairType }))}>
+                  <option value="glass">glass</option>
+                  <option value="cleaning">cleaning</option>
+                  <option value="restoration">restoration</option>
+                  <option value="battery">battery</option>
+                  <option value="waterproofing">waterproofing</option>
+                </select>
+              </div>
+            </div>
+            <button className="cta-button" type="submit">Добавить услугу</button>
+          </form>
+          <div className="option-list admin-mini-list">
+            {services.map((service) => (
+              <article className="panel" key={service.id}>
+                <h4>{service.name}</h4>
+                <div className="actions-row">
+                  <input value={priceEditor[service.id] ?? service.price} onChange={(event) => setPriceEditor((state) => ({ ...state, [service.id]: event.target.value }))} />
+                  <button className="cta-button small" type="button" onClick={() => withRefresh(() => adminSetServicePrice(service.id, Number(priceEditor[service.id] ?? service.price)).then(() => undefined), "Цена обновлена.")}>Цена</button>
+                  <button className="outline-button dark" type="button" onClick={() => withRefresh(() => adminUpdateService(service.id, { description: `${service.description} (обновлено)` }).then(() => undefined), "Услуга обновлена.")}>Редактировать</button>
+                  <button className="outline-button dark" type="button" onClick={() => withRefresh(() => adminDeleteService(service.id), "Услуга удалена.")}>Удалить</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
+
+        <article className="card">
+          <h3>Управление мастерами</h3>
+          <form className="form-grid" onSubmit={onCreateMaster}>
+            <div className="field">
+              <label htmlFor="master-new-name">Имя</label>
+              <input id="master-new-name" value={masterForm.name} onChange={(event) => setMasterForm((state) => ({ ...state, name: event.target.value }))} />
+            </div>
+            <div className="field">
+              <label htmlFor="master-new-bio">Описание</label>
+              <textarea id="master-new-bio" rows={3} value={masterForm.bio} onChange={(event) => setMasterForm((state) => ({ ...state, bio: event.target.value }))} />
+            </div>
+            <div className="filters-grid">
+              <div className="field">
+                <label htmlFor="master-spec">Специализация</label>
+                <select id="master-spec" value={masterForm.specialization} onChange={(event) => setMasterForm((state) => ({ ...state, specialization: event.target.value as Master["specialization"] }))}>
+                  <option value="mechanical">mechanical</option>
+                  <option value="quartz">quartz</option>
+                  <option value="smart">smart</option>
+                  <option value="universal">universal</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="master-exp">Опыт</label>
+                <input id="master-exp" type="number" value={masterForm.experience} onChange={(event) => setMasterForm((state) => ({ ...state, experience: Number(event.target.value) || 1 }))} />
+              </div>
+              <div className="field">
+                <label htmlFor="master-rating">Рейтинг</label>
+                <input id="master-rating" type="number" step={0.1} value={masterForm.rating} onChange={(event) => setMasterForm((state) => ({ ...state, rating: Number(event.target.value) || 4.5 }))} />
+              </div>
+            </div>
+            <button className="cta-button" type="submit">Добавить мастера</button>
+          </form>
+          <div className="option-list admin-mini-list">
+            {masters.map((master) => (
+              <article className="panel" key={master.id}>
+                <h4>{master.name}</h4>
+                <div className="actions-row">
+                  <button className="cta-button small" type="button" onClick={() => withRefresh(() => adminUpdateMaster(master.id, { available: !master.available }).then(() => undefined), "Доступность мастера обновлена.")}>
+                    {master.available ? "Скрыть" : "Показать"}
+                  </button>
+                  <button className="outline-button dark" type="button" onClick={() => withRefresh(() => adminDeleteMaster(master.id), "Мастер удален.")}>Удалить</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
+      </section>
+
       {message ? <p className="notice success">{message}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
-      <p className="hint" style={{ marginTop: "0.9rem" }}>
-        Все действия проходят через Next API routes. Источник данных выбирается переменной `APP_DATA_SOURCE`.
-      </p>
     </div>
   );
 }
-

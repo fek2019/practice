@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT UNIQUE,
   email TEXT UNIQUE,
   role TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('client', 'master', 'admin')),
+  is_banned INTEGER NOT NULL DEFAULT 0 CHECK (is_banned IN (0, 1)),
   password_hash TEXT,
   linked_master_id TEXT REFERENCES masters(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -76,7 +77,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   master_id TEXT NOT NULL REFERENCES masters(id) ON UPDATE CASCADE ON DELETE RESTRICT,
   date TEXT NOT NULL,
   time_slot TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in-progress', 'ready', 'done')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in-progress', 'ready', 'done', 'cancelled')),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -86,6 +87,16 @@ CREATE TABLE IF NOT EXISTS quick_requests (
   client_name TEXT NOT NULL,
   client_phone TEXT NOT NULL,
   service_name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS reviews (
+  id TEXT PRIMARY KEY,
+  appointment_id TEXT NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
+  master_id TEXT NOT NULL REFERENCES masters(id) ON DELETE CASCADE,
+  client_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  text TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
@@ -100,6 +111,7 @@ CREATE INDEX IF NOT EXISTS appointments_client_email_idx ON appointments(client_
 CREATE INDEX IF NOT EXISTS appointments_master_date_idx ON appointments(master_id, date, time_slot);
 CREATE INDEX IF NOT EXISTS services_filter_idx ON services(category, repair_type, price);
 CREATE INDEX IF NOT EXISTS masters_available_idx ON masters(available);
+CREATE INDEX IF NOT EXISTS reviews_client_idx ON reviews(client_user_id, created_at);
 
 -- Триггеры для автоматического обновления updated_at.
 CREATE TRIGGER IF NOT EXISTS services_set_updated_at
@@ -153,6 +165,51 @@ let seeded = false;
 
 const initializeSchema = (database: BetterSqliteDatabase) => {
   database.exec(SCHEMA_SQL);
+
+  const userColumns = database.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>;
+  if (!userColumns.some((column) => column.name === "is_banned")) {
+    database.exec(`ALTER TABLE users ADD COLUMN is_banned INTEGER NOT NULL DEFAULT 0 CHECK (is_banned IN (0, 1));`);
+  }
+
+  const appointmentsSql = database
+    .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'appointments'`)
+    .get() as { sql?: string } | undefined;
+  if (appointmentsSql?.sql && !appointmentsSql.sql.includes("'cancelled'")) {
+    database.exec(`
+      PRAGMA foreign_keys = OFF;
+      BEGIN TRANSACTION;
+      ALTER TABLE appointments RENAME TO appointments_old;
+      CREATE TABLE appointments (
+        id TEXT PRIMARY KEY,
+        client_name TEXT NOT NULL,
+        client_phone TEXT NOT NULL,
+        client_email TEXT NOT NULL,
+        service_id TEXT NOT NULL REFERENCES services(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+        master_id TEXT NOT NULL REFERENCES masters(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+        date TEXT NOT NULL,
+        time_slot TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in-progress', 'ready', 'done', 'cancelled')),
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      );
+      INSERT INTO appointments SELECT * FROM appointments_old;
+      DROP TABLE appointments_old;
+      CREATE UNIQUE INDEX IF NOT EXISTS appointments_master_slot_active_uidx
+        ON appointments(master_id, date, time_slot)
+        WHERE status <> 'done';
+      CREATE INDEX IF NOT EXISTS appointments_client_phone_idx ON appointments(client_phone);
+      CREATE INDEX IF NOT EXISTS appointments_client_email_idx ON appointments(client_email);
+      CREATE INDEX IF NOT EXISTS appointments_master_date_idx ON appointments(master_id, date, time_slot);
+      CREATE TRIGGER IF NOT EXISTS appointments_set_updated_at
+      AFTER UPDATE ON appointments
+      FOR EACH ROW
+      BEGIN
+        UPDATE appointments SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = NEW.id;
+      END;
+      COMMIT;
+      PRAGMA foreign_keys = ON;
+    `);
+  }
 };
 
 const seedIfEmpty = (database: BetterSqliteDatabase) => {

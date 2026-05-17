@@ -9,3 +9,7 @@ export async function sendMasterNotification(masterId: string, message: string) 
 export async function sendSmsCode(phone: string, code: string) {
   console.info(`[Notification][sms-code] ${phone}: ${code}`);
 }
+
+export async function sendEmailCode(email: string, code: string) {
+  console.info(`[Notification][email-code] ${email}: ${code}`);
+}

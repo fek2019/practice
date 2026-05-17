@@ -5,8 +5,10 @@ import {
   CreateAppointmentInput,
   Master,
   QuickRequest,
+  Review,
   Service,
-  ServiceFilters
+  ServiceFilters,
+  User
 } from "@/types";
 import { getAuthHeader } from "./auth-client";
 
@@ -115,8 +117,14 @@ export function updateAppointmentStatus(appointmentId: string, status: Appointme
   });
 }
 
-export function getAdminStats() {
-  return apiRequest<AdminStats>("/api/admin/stats");
+export function deleteAppointment(appointmentId: string) {
+  return apiRequest<{ success: boolean }>(`/api/appointments/${appointmentId}`, {
+    method: "DELETE"
+  }).then(() => undefined);
+}
+
+export function getAdminStats(period?: { from?: string; to?: string }) {
+  return apiRequest<AdminStats>(withQuery("/api/admin/stats", period ?? {}));
 }
 
 export function adminCreateService(input: Omit<Service, "id">) {
@@ -161,4 +169,46 @@ export function adminDeleteMaster(masterId: string) {
   return apiRequest<{ success: boolean }>(`/api/masters/${masterId}`, {
     method: "DELETE"
   }).then(() => undefined);
+}
+
+export function getProfile() {
+  return apiRequest<User>("/api/profile");
+}
+
+export function updateProfile(patch: Partial<Pick<User, "name" | "phone" | "email">>) {
+  return apiRequest<User>("/api/profile", {
+    method: "PATCH",
+    body: jsonBody(patch)
+  });
+}
+
+export function listUsers() {
+  return apiRequest<User[]>("/api/users");
+}
+
+export function adminUpdateUser(
+  userId: string,
+  patch: Partial<Pick<User, "role" | "linkedMasterId" | "isBanned">>
+) {
+  return apiRequest<User>(`/api/users/${userId}`, {
+    method: "PATCH",
+    body: jsonBody(patch)
+  });
+}
+
+export function adminDeleteUser(userId: string) {
+  return apiRequest<{ success: boolean }>(`/api/users/${userId}`, {
+    method: "DELETE"
+  }).then(() => undefined);
+}
+
+export function listClientReviews() {
+  return apiRequest<Review[]>("/api/reviews");
+}
+
+export function createReview(payload: { appointmentId: string; rating: number; text: string }) {
+  return apiRequest<Review>("/api/reviews", {
+    method: "POST",
+    body: jsonBody(payload)
+  });
 }

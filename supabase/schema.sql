@@ -23,7 +23,7 @@ end $$;
 
 do $$
 begin
-  create type appointment_status as enum ('pending', 'in-progress', 'ready', 'done');
+  create type appointment_status as enum ('pending', 'in-progress', 'ready', 'done', 'cancelled');
 exception
   when duplicate_object then null;
 end $$;
@@ -66,6 +66,7 @@ create table if not exists users (
   phone text unique,
   email text unique,
   role user_role not null default 'client',
+  is_banned boolean not null default false,
   password_hash text,
   linked_master_id text references masters(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -95,6 +96,16 @@ create table if not exists quick_requests (
   created_at timestamptz not null default now()
 );
 
+create table if not exists reviews (
+  id text primary key,
+  appointment_id text not null unique references appointments(id) on delete cascade,
+  master_id text not null references masters(id) on delete cascade,
+  client_user_id text not null references users(id) on delete cascade,
+  rating integer not null check (rating between 1 and 5),
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
 create unique index if not exists appointments_master_slot_active_uidx
   on appointments(master_id, date, time_slot)
   where status <> 'done';
@@ -104,6 +115,7 @@ create index if not exists appointments_client_email_idx on appointments(client_
 create index if not exists appointments_master_date_idx on appointments(master_id, date, time_slot);
 create index if not exists services_filter_idx on services(category, repair_type, price);
 create index if not exists masters_available_idx on masters(available);
+create index if not exists reviews_client_idx on reviews(client_user_id, created_at);
 
 create or replace function set_updated_at()
 returns trigger as $$
@@ -138,3 +150,4 @@ alter table masters enable row level security;
 alter table users enable row level security;
 alter table appointments enable row level security;
 alter table quick_requests enable row level security;
+alter table reviews enable row level security;

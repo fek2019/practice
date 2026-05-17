@@ -1,70 +1,68 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getSession,
   loginWithEmail,
   loginWithPhone,
-  logout,
-  requestPhoneCode,
-  switchDemoRole
+  requestEmailCode,
+  requestPhoneCode
 } from "@/lib/auth-client";
-import { AuthSession, UserRole } from "@/types";
 
 type AuthMode = "email" | "phone";
 
-const demoRoles: Array<{ role: UserRole; title: string; text: string; href: string }> = [
-  {
-    role: "client",
-    title: "Клиент",
-    text: "История заявок и статусы ремонта.",
-    href: "/account/client"
-  },
-  {
-    role: "master",
-    title: "Мастер",
-    text: "Календарь, текущие заказы и смена статусов.",
-    href: "/account/master"
-  },
-  {
-    role: "admin",
-    title: "Администратор",
-    text: "CRUD, цены, мастера и статистика.",
-    href: "/admin"
-  }
-];
+const roleRoute = {
+  client: "/account/client",
+  master: "/account/master",
+  admin: "/admin"
+} as const;
 
 export function AccountHub() {
-  const [session, setSession] = useState<AuthSession | null>(null);
+  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("email");
-  const [email, setEmail] = useState("admin@watchlab.local");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("ivan.petrov@example.com");
+  const [password, setPassword] = useState("client123");
+  const [emailCode, setEmailCode] = useState("2468");
   const [phone, setPhone] = useState("+7 999 123 45 67");
-  const [code, setCode] = useState("1234");
+  const [phoneCode, setPhoneCode] = useState("1234");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setSession(getSession());
-  }, []);
+    const session = getSession();
+    if (session) {
+      router.replace(roleRoute[session.role]);
+    }
+  }, [router]);
 
-  const run = async (action: () => Promise<AuthSession | { debugCode?: string; success: boolean } | void>, success: string) => {
+  const run = async (
+    action: () => Promise<{ debugCode?: string; success?: boolean } | { role: keyof typeof roleRoute }>,
+    successText: string
+  ) => {
+    setLoading(true);
     setError("");
     setMessage("");
-    setLoading(true);
     try {
       const result = await action();
-      setSession(getSession());
-      if (result && "debugCode" in result && result.debugCode) {
-        setCode(result.debugCode);
-        setMessage(`${success} Код для dev-режима: ${result.debugCode}.`);
+      if ("debugCode" in result && result.debugCode) {
+        if (mode === "email") {
+          setEmailCode(result.debugCode);
+        } else {
+          setPhoneCode(result.debugCode);
+        }
+        setMessage(`${successText} Код заглушки: ${result.debugCode}.`);
+        return;
+      }
+      const session = getSession();
+      if (session) {
+        router.push(roleRoute[session.role]);
       } else {
-        setMessage(success);
+        setMessage(successText);
       }
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Операция не выполнена.");
+      setError(actionError instanceof Error ? actionError.message : "Не удалось выполнить действие.");
     } finally {
       setLoading(false);
     }
@@ -72,156 +70,111 @@ export function AccountHub() {
 
   const handleEmailLogin = (event: FormEvent) => {
     event.preventDefault();
-    run(() => loginWithEmail(email, password), "Вход выполнен.");
+    run(() => loginWithEmail(email, password, emailCode), "Вход выполнен.");
   };
 
   const handlePhoneLogin = (event: FormEvent) => {
     event.preventDefault();
-    run(() => loginWithPhone(phone, code), "Вход выполнен.");
-  };
-
-  const handleLogout = () => {
-    logout();
-    setSession(null);
-    setMessage("Вы вышли из аккаунта.");
-    setError("");
+    run(() => loginWithPhone(phone, phoneCode), "Вход выполнен.");
   };
 
   return (
-    <div className="account-shell">
-      <section className="panel account-hub" data-reveal="up">
-        <div className="account-hub-top">
-          <div>
-            <span className="account-pill">Личный кабинет</span>
-            <h1>Вход, роли и рабочие пространства</h1>
-            <p>
-              Выберите нужную роль, войдите по email или подтвердите телефон, чтобы перейти к рабочему кабинету.
-            </p>
-          </div>
-          <div className="account-kpis">
-            <div className="account-kpi">
-              <span>Рабочий контур</span>
-              <strong>готов</strong>
-            </div>
-            <div className="account-kpi">
-              <span>Сессия</span>
-              <strong>{session ? session.role : "не активна"}</strong>
-            </div>
-          </div>
-        </div>
+    <div className="account-entry-shell">
+      <section className="panel account-entry-intro" data-reveal="up">
+        <span className="account-pill">Личный кабинет</span>
+        <h1>Войдите, чтобы открыть рабочее пространство</h1>
+        <p>
+          После подтверждения почты или телефона система сразу переведет вас в кабинет с нужной ролью.
+        </p>
       </section>
 
-      <section className="panel account-scene" data-reveal="up">
-        <div className="account-scene-head">
-          <h2>{session ? `Вы вошли как ${session.name}` : "Войти в аккаунт"}</h2>
-          <p>{session ? `${session.email || session.phone} | роль: ${session.role}` : "Выберите способ входа."}</p>
-        </div>
+      <div className="account-modal-backdrop">
+        <section className="panel account-login-modal" role="dialog" aria-modal="true" aria-label="Вход в личный кабинет">
+          <div className="account-scene-head">
+            <h2>Вход</h2>
+            <p>Подтвердите email или войдите по номеру телефона.</p>
+          </div>
 
-        {session ? (
-          <div className="account-space-grid">
-            {demoRoles.map((item) => (
-              <article className="card account-space-card" key={item.role}>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-                <Link className="cta-button small" href={item.href}>
-                  Открыть
-                </Link>
-              </article>
-            ))}
-            <button type="button" className="outline-button dark" onClick={handleLogout}>
-              Выйти
+          <div className="auth-method-switch">
+            <button
+              type="button"
+              className={`auth-method-btn ${mode === "email" ? "active" : ""}`}
+              onClick={() => setMode("email")}
+            >
+              Email
+            </button>
+            <button
+              type="button"
+              className={`auth-method-btn ${mode === "phone" ? "active" : ""}`}
+              onClick={() => setMode("phone")}
+            >
+              Телефон
             </button>
           </div>
-        ) : (
-          <div className="account-auth-layout">
-            <div className="account-auth-main">
-              <div className="auth-method-switch">
+
+          {mode === "email" ? (
+            <form className="account-panel" onSubmit={handleEmailLogin}>
+              <div className="field">
+                <label htmlFor="account-email">Email</label>
+                <input id="account-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="account-password">Пароль</label>
+                <input
+                  id="account-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="account-email-code">Код из письма</label>
+                <input id="account-email-code" value={emailCode} onChange={(event) => setEmailCode(event.target.value)} />
+              </div>
+              <div className="actions-row">
                 <button
                   type="button"
-                  className={`auth-method-btn ${mode === "email" ? "active" : ""}`}
-                  onClick={() => setMode("email")}
+                  className="outline-button dark"
+                  disabled={loading}
+                  onClick={() => run(() => requestEmailCode(email), "Письмо отправлено.")}
                 >
-                  Email
+                  Получить код
                 </button>
+                <button className="cta-button" type="submit" disabled={loading}>
+                  {loading ? "Проверяем..." : "Войти"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form className="account-panel" onSubmit={handlePhoneLogin}>
+              <div className="field">
+                <label htmlFor="account-phone">Телефон</label>
+                <input id="account-phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="account-phone-code">Код из SMS</label>
+                <input id="account-phone-code" value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} />
+              </div>
+              <div className="actions-row">
                 <button
                   type="button"
-                  className={`auth-method-btn ${mode === "phone" ? "active" : ""}`}
-                  onClick={() => setMode("phone")}
+                  className="outline-button dark"
+                  disabled={loading}
+                  onClick={() => run(() => requestPhoneCode(phone), "SMS отправлено.")}
                 >
-                  Телефон
+                  Получить код
+                </button>
+                <button className="cta-button" type="submit" disabled={loading}>
+                  {loading ? "Проверяем..." : "Войти"}
                 </button>
               </div>
+            </form>
+          )}
 
-              {mode === "email" ? (
-                <form className="account-panel" onSubmit={handleEmailLogin}>
-                  <div className="field">
-                    <label htmlFor="account-email">Email</label>
-                    <input id="account-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="account-password">Пароль</label>
-                    <input
-                      id="account-password"
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                    />
-                  </div>
-                  <button className="cta-button" type="submit" disabled={loading}>
-                    {loading ? "Входим..." : "Войти"}
-                  </button>
-                </form>
-              ) : (
-                <form className="account-panel" onSubmit={handlePhoneLogin}>
-                  <div className="field">
-                    <label htmlFor="account-phone">Телефон</label>
-                    <input id="account-phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-                  </div>
-                  <div className="actions-row">
-                    <button
-                      type="button"
-                      className="outline-button dark"
-                      disabled={loading}
-                      onClick={() => run(() => requestPhoneCode(phone), "Код отправлен.")}
-                    >
-                      Получить код
-                    </button>
-                  </div>
-                  <div className="field">
-                    <label htmlFor="account-code">Код</label>
-                    <input id="account-code" value={code} onChange={(event) => setCode(event.target.value)} />
-                  </div>
-                  <button className="cta-button" type="submit" disabled={loading}>
-                    {loading ? "Проверяем..." : "Войти по телефону"}
-                  </button>
-                </form>
-              )}
-            </div>
-
-            <aside className="account-side-note">
-              <h3>Демо-роли</h3>
-              <div className="account-role-grid">
-                {demoRoles.map((item) => (
-                  <button
-                    type="button"
-                    className="account-role-btn"
-                    key={item.role}
-                    disabled={loading}
-                    onClick={() => run(() => switchDemoRole(item.role), `Включена роль: ${item.title}.`)}
-                  >
-                    <h3>{item.title}</h3>
-                    <p>{item.text}</p>
-                    <span className="small-badge">{item.role}</span>
-                  </button>
-                ))}
-              </div>
-            </aside>
-          </div>
-        )}
-
-        {message ? <p className="notice success">{message}</p> : null}
-        {error ? <p className="notice error">{error}</p> : null}
-      </section>
+          {message ? <p className="notice success">{message}</p> : null}
+          {error ? <p className="notice error">{error}</p> : null}
+        </section>
+      </div>
     </div>
   );
 }

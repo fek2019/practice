@@ -5,6 +5,7 @@ import {
   CreateAppointmentInput,
   Master,
   QuickRequest,
+  Review,
   Service,
   ServiceFilters,
   User,
@@ -262,9 +263,22 @@ export const mockRepository: WorkshopRepository = {
     return clone(appointment);
   },
 
-  async getAdminStats(): Promise<AdminStats> {
+  async deleteAppointment(appointmentId: string) {
+    const index = mockDb.appointments.findIndex((appointment) => appointment.id === appointmentId);
+    if (index === -1) {
+      throw notFound("Заявка не найдена");
+    }
+    mockDb.appointments.splice(index, 1);
+  },
+
+  async getAdminStats(period?: { from?: string; to?: string }): Promise<AdminStats> {
+    const scopedAppointments = mockDb.appointments.filter((appointment) => {
+      const afterFrom = !period?.from || appointment.date >= period.from;
+      const beforeTo = !period?.to || appointment.date <= period.to;
+      return afterFrom && beforeTo;
+    });
     const popularServiceMap = new Map<string, number>();
-    for (const appointment of mockDb.appointments) {
+    for (const appointment of scopedAppointments) {
       popularServiceMap.set(appointment.serviceId, (popularServiceMap.get(appointment.serviceId) ?? 0) + 1);
     }
 
@@ -279,19 +293,23 @@ export const mockRepository: WorkshopRepository = {
     const masterLoad = mockDb.masters.map((master) => ({
       masterId: master.id,
       masterName: master.name,
-      orders: mockDb.appointments.filter((appointment) => appointment.masterId === master.id).length
+      orders: scopedAppointments.filter((appointment) => appointment.masterId === master.id).length
     }));
 
-    const totalRevenue = mockDb.appointments
+    const totalRevenue = scopedAppointments
       .filter((appointment) => appointment.status === "done")
       .reduce((sum, appointment) => sum + getServicePrice(appointment.serviceId), 0);
 
     return {
-      totalAppointments: mockDb.appointments.length,
+      totalAppointments: scopedAppointments.length,
       totalRevenue,
       popularServices,
       masterLoad
     };
+  },
+
+  async getUserById(userId: string) {
+    return clone(mockDb.users.find((user) => user.id === userId) ?? null);
   },
 
   async getUserByEmail(email: string) {
@@ -306,6 +324,33 @@ export const mockRepository: WorkshopRepository = {
     return clone(mockDb.users.find((user) => user.role === role) ?? null);
   },
 
+  async listUsers() {
+    return clone([...mockDb.users].sort((a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name)));
+  },
+
+  async updateUser(
+    userId: string,
+    patch: Partial<Pick<User, "name" | "phone" | "email" | "role" | "linkedMasterId" | "isBanned">>
+  ) {
+    const user = mockDb.users.find((candidate) => candidate.id === userId);
+    if (!user) {
+      throw notFound("Пользователь не найден");
+    }
+    Object.assign(user, patch);
+    if (patch.role !== undefined && patch.role !== "master") {
+      user.linkedMasterId = undefined;
+    }
+    return clone(user);
+  },
+
+  async deleteUser(userId: string) {
+    const index = mockDb.users.findIndex((user) => user.id === userId);
+    if (index === -1) {
+      throw notFound("Пользователь не найден");
+    }
+    mockDb.users.splice(index, 1);
+  },
+
   async createClientUser(input: { name: string; phone?: string; email?: string; passwordHash?: string }) {
     const user: User = {
       id: generateId("u"),
@@ -318,5 +363,22 @@ export const mockRepository: WorkshopRepository = {
     };
     mockDb.users.push(user);
     return clone(user);
+  },
+
+  async listReviewsByClient(userId: string) {
+    return clone(mockDb.reviews.filter((review) => review.clientUserId === userId));
+  },
+
+  async createReview(input: Omit<Review, "id" | "createdAt">) {
+    if (mockDb.reviews.some((review) => review.appointmentId === input.appointmentId)) {
+      throw conflict("Отзыв для этой заявки уже существует");
+    }
+    const review: Review = {
+      id: generateId("r"),
+      ...input,
+      createdAt: new Date().toISOString()
+    };
+    mockDb.reviews.unshift(review);
+    return clone(review);
   }
 };

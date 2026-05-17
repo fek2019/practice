@@ -1,15 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { listMasterAppointments, listServices, updateAppointmentStatus } from "@/lib/api-client";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { getProfile, listMasterAppointments, listServices, updateAppointmentStatus, updateProfile } from "@/lib/api-client";
 import { getSession } from "@/lib/auth-client";
 import { formatDate, getStatusLabel } from "@/lib/format";
-import { Appointment, AppointmentStatus, AuthSession, Service } from "@/types";
+import { Appointment, AppointmentStatus, AuthSession, Service, User } from "@/types";
 import { StatusBadge } from "../ui/status-badge";
 
 type CalendarMode = "day" | "week" | "month";
 
-const statusOptions: AppointmentStatus[] = ["pending", "in-progress", "ready", "done"];
+const statusOptions: AppointmentStatus[] = ["pending", "in-progress", "ready", "done", "cancelled"];
 
 const getDateDiffDays = (date: string) => {
   const value = new Date(date);
@@ -21,24 +21,33 @@ const getDateDiffDays = (date: string) => {
 
 export function MasterDashboard() {
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [profile, setProfile] = useState<User | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [profileForm, setProfileForm] = useState({ name: "", phone: "", email: "" });
   const [mode, setMode] = useState<CalendarMode>("week");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     setSession(getSession());
   }, []);
 
   const reload = useCallback(async (masterId: string) => {
-    const [appointmentData, serviceData] = await Promise.all([listMasterAppointments(masterId), listServices()]);
+    const [profileData, appointmentData, serviceData] = await Promise.all([
+      getProfile(),
+      listMasterAppointments(masterId),
+      listServices()
+    ]);
+    setProfile(profileData);
     setAppointments(appointmentData);
     setServices(serviceData);
+    setProfileForm({ name: profileData.name, phone: profileData.phone, email: profileData.email });
   }, []);
 
   useEffect(() => {
-    if (!session?.linkedMasterId) {
+    if (!session?.linkedMasterId || session.role !== "master") {
       setLoading(false);
       return;
     }
@@ -53,73 +62,92 @@ export function MasterDashboard() {
   const filteredForCalendar = useMemo(() => {
     return appointments.filter((appointment) => {
       const diff = getDateDiffDays(appointment.date);
-      if (mode === "day") {
-        return diff === 0;
-      }
-      if (mode === "week") {
-        return diff >= 0 && diff <= 7;
-      }
+      if (mode === "day") return diff === 0;
+      if (mode === "week") return diff >= 0 && diff <= 7;
       return diff >= 0 && diff <= 31;
     });
   }, [appointments, mode]);
 
   const serviceMap = useMemo(() => new Map(services.map((service) => [service.id, service])), [services]);
-  const currentOrders = appointments.filter((appointment) => appointment.status !== "done");
-  const history = appointments.filter((appointment) => appointment.status === "done");
+  const currentOrders = appointments.filter((appointment) => !["done", "cancelled"].includes(appointment.status));
+  const history = appointments.filter((appointment) => ["done", "cancelled"].includes(appointment.status));
 
   const handleStatusChange = async (appointmentId: string, status: AppointmentStatus) => {
-    if (!session?.linkedMasterId) {
-      return;
-    }
+    if (!session?.linkedMasterId) return;
     setError("");
+    setMessage("");
     try {
       await updateAppointmentStatus(appointmentId, status);
       await reload(session.linkedMasterId);
+      setMessage("Статус заявки обновлен.");
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Не удалось обновить статус.");
     }
   };
 
+  const handleProfileSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!session?.linkedMasterId) return;
+    setError("");
+    setMessage("");
+    try {
+      await updateProfile(profileForm);
+      await reload(session.linkedMasterId);
+      setMessage("Данные аккаунта обновлены.");
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Не удалось сохранить профиль.");
+    }
+  };
+
   if (!session || session.role !== "master" || !session.linkedMasterId) {
-    return (
-      <div className="empty-state">
-        Войдите под ролью мастера на странице /account. Для демо доступен пользователь `romanov.master@example.com`.
-      </div>
-    );
+    return <div className="empty-state">Доступ к кабинету мастера выдает только администратор.</div>;
   }
 
-  if (loading) {
+  if (loading || !profile) {
     return <p className="hint">Загружаем кабинет мастера...</p>;
   }
 
   return (
-    <div className="panel master-dashboard-shell" data-reveal="up">
-      <h2>Личный кабинет мастера</h2>
-      <p className="hint" style={{ marginBottom: "0.8rem" }}>
-        {session.name} | режим календаря:
-      </p>
-      <div className="actions-row" style={{ marginBottom: "1rem" }}>
-        <button type="button" className={`outline-button dark ${mode === "day" ? "nav-link-active" : ""}`} onClick={() => setMode("day")}>
-          День
-        </button>
-        <button
-          type="button"
-          className={`outline-button dark ${mode === "week" ? "nav-link-active" : ""}`}
-          onClick={() => setMode("week")}
-        >
-          Неделя
-        </button>
-        <button
-          type="button"
-          className={`outline-button dark ${mode === "month" ? "nav-link-active" : ""}`}
-          onClick={() => setMode("month")}
-        >
-          Месяц
-        </button>
-      </div>
+    <div className="cabinet-shell" data-reveal="up">
+      <section className="panel cabinet-profile-card">
+        <div>
+          <span className="small-badge">Профиль мастера</span>
+          <h2>{profile.name}</h2>
+          <p className="hint">{profile.email || profile.phone}</p>
+        </div>
+        <form className="form-grid cabinet-profile-form" onSubmit={handleProfileSubmit}>
+          <div className="field">
+            <label htmlFor="master-name">Имя</label>
+            <input id="master-name" value={profileForm.name} onChange={(event) => setProfileForm((state) => ({ ...state, name: event.target.value }))} />
+          </div>
+          <div className="field">
+            <label htmlFor="master-phone">Телефон</label>
+            <input id="master-phone" value={profileForm.phone} onChange={(event) => setProfileForm((state) => ({ ...state, phone: event.target.value }))} />
+          </div>
+          <div className="field">
+            <label htmlFor="master-email">Email</label>
+            <input id="master-email" value={profileForm.email} onChange={(event) => setProfileForm((state) => ({ ...state, email: event.target.value }))} />
+          </div>
+          <button className="cta-button" type="submit">Сохранить изменения</button>
+        </form>
+      </section>
 
-      <div className="card" style={{ marginBottom: "1rem" }}>
-        <h3>Календарь записей</h3>
+      <section className="card">
+        <div className="cabinet-section-head">
+          <h3>Календарь записей</h3>
+          <div className="actions-row">
+            {(["day", "week", "month"] as CalendarMode[]).map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={`outline-button dark ${mode === item ? "nav-link-active" : ""}`}
+                onClick={() => setMode(item)}
+              >
+                {item === "day" ? "День" : item === "week" ? "Неделя" : "Месяц"}
+              </button>
+            ))}
+          </div>
+        </div>
         {filteredForCalendar.length === 0 ? (
           <p className="hint">На выбранный период записей нет.</p>
         ) : (
@@ -141,41 +169,40 @@ export function MasterDashboard() {
                     <td>{appointment.timeSlot}</td>
                     <td>{appointment.clientName}</td>
                     <td>{serviceMap.get(appointment.serviceId)?.name ?? "-"}</td>
-                    <td>
-                      <StatusBadge status={appointment.status} />
-                    </td>
+                    <td><StatusBadge status={appointment.status} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="dashboard-grid">
-        <div className="card">
+      <div className="dashboard-grid cabinet-orders-grid">
+        <section className="card">
           <h3>Текущие заказы</h3>
           {currentOrders.length === 0 ? (
             <p className="hint">Нет активных заказов.</p>
           ) : (
             <div className="option-list">
               {currentOrders.map((appointment) => (
-                <article key={appointment.id} className="panel">
-                  <h4>{serviceMap.get(appointment.serviceId)?.name ?? "Услуга"}</h4>
-                  <p className="hint">
-                    {formatDate(appointment.date)} {appointment.timeSlot} | {appointment.clientName}
-                  </p>
-                  <div className="field" style={{ marginTop: "0.6rem" }}>
-                    <label htmlFor={`status-${appointment.id}`}>Статус заказа</label>
+                <article key={appointment.id} className="panel order-card">
+                  <div className="order-card-head">
+                    <div>
+                      <h4>{serviceMap.get(appointment.serviceId)?.name ?? "Услуга"}</h4>
+                      <p className="hint">{formatDate(appointment.date)} {appointment.timeSlot} | {appointment.clientName}</p>
+                    </div>
+                    <StatusBadge status={appointment.status} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={`status-${appointment.id}`}>Статус заявки</label>
                     <select
                       id={`status-${appointment.id}`}
                       value={appointment.status}
                       onChange={(event) => handleStatusChange(appointment.id, event.target.value as AppointmentStatus)}
                     >
                       {statusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {getStatusLabel(status)}
-                        </option>
+                        <option key={status} value={status}>{getStatusLabel(status)}</option>
                       ))}
                     </select>
                   </div>
@@ -183,23 +210,31 @@ export function MasterDashboard() {
               ))}
             </div>
           )}
-        </div>
-        <div className="card">
-          <h3>История выполненных</h3>
+        </section>
+
+        <section className="card">
+          <h3>История заказов</h3>
           {history.length === 0 ? (
             <p className="hint">Завершенных заказов пока нет.</p>
           ) : (
-            <ul style={{ margin: 0, paddingLeft: "1rem", display: "grid", gap: "0.35rem" }}>
+            <div className="option-list">
               {history.map((appointment) => (
-                <li key={appointment.id}>
-                  {formatDate(appointment.date)} {appointment.timeSlot} - {serviceMap.get(appointment.serviceId)?.name ?? "Услуга"}
-                </li>
+                <article key={appointment.id} className="panel order-card">
+                  <div className="order-card-head">
+                    <div>
+                      <h4>{serviceMap.get(appointment.serviceId)?.name ?? "Услуга"}</h4>
+                      <p className="hint">{formatDate(appointment.date)} {appointment.timeSlot}</p>
+                    </div>
+                    <StatusBadge status={appointment.status} />
+                  </div>
+                </article>
               ))}
-            </ul>
+            </div>
           )}
-        </div>
+        </section>
       </div>
 
+      {message ? <p className="notice success">{message}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
     </div>
   );

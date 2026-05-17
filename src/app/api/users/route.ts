@@ -6,12 +6,7 @@ import { requireSession } from "@/server/security/session";
 export async function GET(request: NextRequest) {
   try {
     requireSession(request, ["admin"]);
-    return jsonOk(
-      await getRepository().getAdminStats({
-        from: request.nextUrl.searchParams.get("from") ?? undefined,
-        to: request.nextUrl.searchParams.get("to") ?? undefined
-      })
-    );
+    return jsonOk(await getRepository().listUsers());
   } catch (error) {
     return handleRouteError(error);
   }

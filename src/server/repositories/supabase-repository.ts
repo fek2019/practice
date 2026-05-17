@@ -5,6 +5,7 @@ import {
   CreateAppointmentInput,
   Master,
   QuickRequest,
+  Review,
   Service,
   ServiceFilters,
   User,
@@ -56,8 +57,19 @@ type UserRow = {
   phone: string | null;
   email: string | null;
   role: UserRole;
+  is_banned: boolean;
   password_hash: string | null;
   linked_master_id: string | null;
+};
+
+type ReviewRow = {
+  id: string;
+  appointment_id: string;
+  master_id: string;
+  client_user_id: string;
+  rating: number;
+  text: string;
+  created_at: string;
 };
 
 type QuickRequestRow = {
@@ -127,6 +139,7 @@ const toUser = (row: UserRow): User => ({
   phone: row.phone ?? "",
   email: row.email ?? "",
   role: row.role,
+  isBanned: Boolean(row.is_banned),
   passwordHash: row.password_hash ?? undefined,
   appointments: [],
   linkedMasterId: row.linked_master_id ?? undefined
@@ -137,6 +150,16 @@ const toQuickRequest = (row: QuickRequestRow): QuickRequest => ({
   clientName: row.client_name,
   clientPhone: row.client_phone,
   serviceName: row.service_name,
+  createdAt: row.created_at
+});
+
+const toReview = (row: ReviewRow): Review => ({
+  id: row.id,
+  appointmentId: row.appointment_id,
+  masterId: row.master_id,
+  clientUserId: row.client_user_id,
+  rating: row.rating,
+  text: row.text,
   createdAt: row.created_at
 });
 
@@ -451,16 +474,26 @@ export const supabaseRepository: WorkshopRepository = {
     return appointment;
   },
 
-  async getAdminStats(): Promise<AdminStats> {
+  async deleteAppointment(appointmentId: string) {
+    const { error } = await db().from("appointments").delete().eq("id", appointmentId);
+    fail(error, "Не удалось удалить запись");
+  },
+
+  async getAdminStats(period?: { from?: string; to?: string }): Promise<AdminStats> {
     const [appointments, services, masters] = await Promise.all([
       this.listAllAppointments(),
       this.listServices(),
       this.listMasters()
     ]);
 
+    const scopedAppointments = appointments.filter((appointment) => {
+      const afterFrom = !period?.from || appointment.date >= period.from;
+      const beforeTo = !period?.to || appointment.date <= period.to;
+      return afterFrom && beforeTo;
+    });
     const serviceMap = new Map(services.map((service) => [service.id, service]));
     const popularServiceMap = new Map<string, number>();
-    for (const appointment of appointments) {
+    for (const appointment of scopedAppointments) {
       popularServiceMap.set(appointment.serviceId, (popularServiceMap.get(appointment.serviceId) ?? 0) + 1);
     }
 
@@ -475,19 +508,25 @@ export const supabaseRepository: WorkshopRepository = {
     const masterLoad = masters.map((master) => ({
       masterId: master.id,
       masterName: master.name,
-      orders: appointments.filter((appointment) => appointment.masterId === master.id).length
+      orders: scopedAppointments.filter((appointment) => appointment.masterId === master.id).length
     }));
 
-    const totalRevenue = appointments
+    const totalRevenue = scopedAppointments
       .filter((appointment) => appointment.status === "done")
       .reduce((sum, appointment) => sum + (serviceMap.get(appointment.serviceId)?.price ?? 0), 0);
 
     return {
-      totalAppointments: appointments.length,
+      totalAppointments: scopedAppointments.length,
       totalRevenue,
       popularServices,
       masterLoad
     };
+  },
+
+  async getUserById(userId: string) {
+    const { data, error } = await db().from("users").select("*").eq("id", userId).maybeSingle();
+    fail(error, "Не удалось получить пользователя");
+    return data ? toUser(data as UserRow) : null;
   },
 
   async getUserByEmail(email: string) {
@@ -506,6 +545,34 @@ export const supabaseRepository: WorkshopRepository = {
     const { data, error } = await db().from("users").select("*").eq("role", role).limit(1).maybeSingle();
     fail(error, "Не удалось получить пользователя");
     return data ? toUser(data as UserRow) : null;
+  },
+
+  async listUsers() {
+    const { data, error } = await db().from("users").select("*").order("role", { ascending: true }).order("created_at", { ascending: false });
+    fail(error, "Не удалось получить пользователей");
+    return ((data ?? []) as UserRow[]).map(toUser);
+  },
+
+  async updateUser(
+    userId: string,
+    patch: Partial<Pick<User, "name" | "phone" | "email" | "role" | "linkedMasterId" | "isBanned">>
+  ) {
+    const payload: Record<string, unknown> = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.phone !== undefined) payload.phone = patch.phone || null;
+    if (patch.email !== undefined) payload.email = patch.email || null;
+    if (patch.role !== undefined) payload.role = patch.role;
+    if (patch.linkedMasterId !== undefined) payload.linked_master_id = patch.linkedMasterId || null;
+    if (patch.isBanned !== undefined) payload.is_banned = patch.isBanned;
+    const { data, error } = await db().from("users").update(payload).eq("id", userId).select("*").maybeSingle();
+    fail(error, "Не удалось обновить пользователя");
+    if (!data) throw notFound("Пользователь не найден");
+    return toUser(data as UserRow);
+  },
+
+  async deleteUser(userId: string) {
+    const { error } = await db().from("users").delete().eq("id", userId);
+    fail(error, "Не удалось удалить пользователя");
   },
 
   async createClientUser(input: { name: string; phone?: string; email?: string; passwordHash?: string }) {
@@ -530,5 +597,29 @@ export const supabaseRepository: WorkshopRepository = {
     const { data, error } = await db().from("users").insert(payload).select("*").single();
     fail(error, "Не удалось создать пользователя");
     return toUser(data as UserRow);
+  },
+
+  async listReviewsByClient(userId: string) {
+    const { data, error } = await db()
+      .from("reviews")
+      .select("*")
+      .eq("client_user_id", userId)
+      .order("created_at", { ascending: false });
+    fail(error, "Не удалось получить отзывы");
+    return ((data ?? []) as ReviewRow[]).map(toReview);
+  },
+
+  async createReview(input: Omit<Review, "id" | "createdAt">) {
+    const payload = {
+      id: generateId("r"),
+      appointment_id: input.appointmentId,
+      master_id: input.masterId,
+      client_user_id: input.clientUserId,
+      rating: input.rating,
+      text: input.text
+    };
+    const { data, error } = await db().from("reviews").insert(payload).select("*").single();
+    fail(error, "Не удалось создать отзыв");
+    return toReview(data as ReviewRow);
   }
 };

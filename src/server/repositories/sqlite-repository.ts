@@ -5,6 +5,7 @@ import {
   CreateAppointmentInput,
   Master,
   QuickRequest,
+  Review,
   Service,
   ServiceFilters,
   User,
@@ -60,8 +61,19 @@ type UserRow = {
   phone: string | null;
   email: string | null;
   role: UserRole;
+  is_banned: number;
   password_hash: string | null;
   linked_master_id: string | null;
+};
+
+type ReviewRow = {
+  id: string;
+  appointment_id: string;
+  master_id: string;
+  client_user_id: string;
+  rating: number;
+  text: string;
+  created_at: string;
 };
 
 type QuickRequestRow = {
@@ -116,6 +128,7 @@ const toUser = (row: UserRow): User => ({
   phone: row.phone ?? "",
   email: row.email ?? "",
   role: row.role,
+  isBanned: Boolean(row.is_banned),
   passwordHash: row.password_hash ?? undefined,
   appointments: [],
   linkedMasterId: row.linked_master_id ?? undefined
@@ -126,6 +139,16 @@ const toQuickRequest = (row: QuickRequestRow): QuickRequest => ({
   clientName: row.client_name,
   clientPhone: row.client_phone,
   serviceName: row.service_name,
+  createdAt: row.created_at
+});
+
+const toReview = (row: ReviewRow): Review => ({
+  id: row.id,
+  appointmentId: row.appointment_id,
+  masterId: row.master_id,
+  clientUserId: row.client_user_id,
+  rating: Number(row.rating),
+  text: row.text,
   createdAt: row.created_at
 });
 
@@ -527,22 +550,41 @@ export const sqliteRepository: WorkshopRepository = {
     return appointment;
   },
 
+  async deleteAppointment(appointmentId: string) {
+    const result = getDb().prepare(`DELETE FROM appointments WHERE id = ?`).run(appointmentId);
+    if (result.changes === 0) {
+      throw notFound("Заявка не найдена");
+    }
+  },
+
   // -------------------------------- stats -----------------------------------
-  async getAdminStats(): Promise<AdminStats> {
+  async getAdminStats(period?: { from?: string; to?: string }): Promise<AdminStats> {
     const db = getDb();
+    const where: string[] = [];
+    const params: string[] = [];
+    if (period?.from) {
+      where.push("a.date >= ?");
+      params.push(period.from);
+    }
+    if (period?.to) {
+      where.push("a.date <= ?");
+      params.push(period.to);
+    }
+    const appointmentWhere = where.length > 0 ? ` WHERE ${where.join(" AND ")}` : "";
+    const revenueWhere = where.length > 0 ? ` AND ${where.join(" AND ")}` : "";
 
     const totalAppointments = (db
-      .prepare(`SELECT COUNT(*) AS count FROM appointments`)
-      .get() as { count: number }).count;
+      .prepare(`SELECT COUNT(*) AS count FROM appointments a${appointmentWhere}`)
+      .get(...params) as { count: number }).count;
 
     const totalRevenueRow = db
       .prepare(
         `SELECT COALESCE(SUM(s.price), 0) AS revenue
          FROM appointments a
          JOIN services s ON s.id = a.service_id
-         WHERE a.status = 'done'`
+         WHERE a.status = 'done'${revenueWhere}`
       )
-      .get() as { revenue: number };
+      .get(...params) as { revenue: number };
 
     const popularServices = (db
       .prepare(
@@ -551,10 +593,11 @@ export const sqliteRepository: WorkshopRepository = {
                 COUNT(*) AS bookings
          FROM appointments a
          LEFT JOIN services s ON s.id = a.service_id
+         ${appointmentWhere}
          GROUP BY a.service_id
          ORDER BY bookings DESC`
       )
-      .all() as Array<{ serviceId: string; serviceName: string; bookings: number }>).map((row) => ({
+      .all(...params) as Array<{ serviceId: string; serviceName: string; bookings: number }>).map((row) => ({
       serviceId: row.serviceId,
       serviceName: row.serviceName,
       bookings: Number(row.bookings)
@@ -566,11 +609,11 @@ export const sqliteRepository: WorkshopRepository = {
                 m.name AS masterName,
                 COALESCE(COUNT(a.id), 0) AS orders
          FROM masters m
-         LEFT JOIN appointments a ON a.master_id = m.id
+         LEFT JOIN appointments a ON a.master_id = m.id${where.length > 0 ? ` AND ${where.join(" AND ")}` : ""}
          GROUP BY m.id, m.name
          ORDER BY m.created_at DESC`
       )
-      .all() as Array<{ masterId: string; masterName: string; orders: number }>).map((row) => ({
+      .all(...params) as Array<{ masterId: string; masterName: string; orders: number }>).map((row) => ({
       masterId: row.masterId,
       masterName: row.masterName,
       orders: Number(row.orders)
@@ -585,6 +628,11 @@ export const sqliteRepository: WorkshopRepository = {
   },
 
   // -------------------------------- users -----------------------------------
+  async getUserById(id: string) {
+    const row = getDb().prepare(`SELECT * FROM users WHERE id = ?`).get(id) as UserRow | undefined;
+    return row ? toUser(row) : null;
+  },
+
   async getUserByEmail(email: string) {
     const row = getDb()
       .prepare(`SELECT * FROM users WHERE email = ?`)
@@ -604,6 +652,48 @@ export const sqliteRepository: WorkshopRepository = {
       .prepare(`SELECT * FROM users WHERE role = ? ORDER BY created_at ASC LIMIT 1`)
       .get(role) as UserRow | undefined;
     return row ? toUser(row) : null;
+  },
+
+  async listUsers() {
+    const rows = getDb()
+      .prepare(`SELECT * FROM users ORDER BY role ASC, created_at DESC`)
+      .all() as UserRow[];
+    return rows.map(toUser);
+  },
+
+  async updateUser(
+    userId: string,
+    patch: Partial<Pick<User, "name" | "phone" | "email" | "role" | "linkedMasterId" | "isBanned">>
+  ) {
+    const db = getDb();
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (patch.name !== undefined) { sets.push("name = ?"); params.push(patch.name); }
+    if (patch.phone !== undefined) { sets.push("phone = ?"); params.push(patch.phone || null); }
+    if (patch.email !== undefined) { sets.push("email = ?"); params.push(patch.email || null); }
+    if (patch.role !== undefined) { sets.push("role = ?"); params.push(patch.role); }
+    if (patch.linkedMasterId !== undefined) { sets.push("linked_master_id = ?"); params.push(patch.linkedMasterId || null); }
+    if (patch.isBanned !== undefined) { sets.push("is_banned = ?"); params.push(patch.isBanned ? 1 : 0); }
+    if (sets.length === 0) {
+      const current = await this.getUserById(userId);
+      if (!current) throw notFound("Пользователь не найден");
+      return current;
+    }
+    params.push(userId);
+    const result = db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+    if (result.changes === 0) {
+      throw notFound("Пользователь не найден");
+    }
+    const user = await this.getUserById(userId);
+    if (!user) throw notFound("Пользователь не найден");
+    return user;
+  },
+
+  async deleteUser(userId: string) {
+    const result = getDb().prepare(`DELETE FROM users WHERE id = ?`).run(userId);
+    if (result.changes === 0) {
+      throw notFound("Пользователь не найден");
+    }
   },
 
   async createClientUser(input: { name: string; phone?: string; email?: string; passwordHash?: string }) {
@@ -650,5 +740,30 @@ export const sqliteRepository: WorkshopRepository = {
 
     const row = db.prepare(`SELECT * FROM users WHERE id = ?`).get(id) as UserRow;
     return toUser(row);
+  },
+
+  async listReviewsByClient(userId: string) {
+    const rows = getDb()
+      .prepare(`SELECT * FROM reviews WHERE client_user_id = ? ORDER BY created_at DESC`)
+      .all(userId) as ReviewRow[];
+    return rows.map(toReview);
+  },
+
+  async createReview(input: Omit<Review, "id" | "createdAt">) {
+    const db = getDb();
+    const id = generateId("r");
+    try {
+      db.prepare(
+        `INSERT INTO reviews (id, appointment_id, master_id, client_user_id, rating, text)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(id, input.appointmentId, input.masterId, input.clientUserId, input.rating, input.text);
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        throw conflict("Отзыв для этой заявки уже существует");
+      }
+      throw error;
+    }
+    const row = db.prepare(`SELECT * FROM reviews WHERE id = ?`).get(id) as ReviewRow;
+    return toReview(row);
   }
 };

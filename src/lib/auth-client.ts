@@ -71,14 +71,18 @@ export async function requestPhoneCode(phone: string) {
   return authRequest<{ success: boolean; debugCode?: string }>("/api/auth/request-code", { phone });
 }
 
+export async function requestEmailCode(email: string) {
+  return authRequest<{ success: boolean; debugCode?: string }>("/api/auth/request-email-code", { email });
+}
+
 export async function loginWithPhone(phone: string, code: string) {
   const session = await authRequest<AuthSession>("/api/auth/login-phone", { phone, code });
   saveSession(session);
   return session;
 }
 
-export async function loginWithEmail(email: string, password: string) {
-  const session = await authRequest<AuthSession>("/api/auth/login-email", { email, password });
+export async function loginWithEmail(email: string, password: string, code: string) {
+  const session = await authRequest<AuthSession>("/api/auth/login-email", { email, password, code });
   saveSession(session);
   return session;
 }
