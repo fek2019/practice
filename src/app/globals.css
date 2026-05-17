@@ -726,6 +726,36 @@ th {
   gap: 0.35rem;
 }
 
+.site-footer ul.footer-contacts {
+  list-style: none;
+  padding-left: 0;
+  gap: 0.5rem;
+}
+
+.site-footer .footer-contacts li {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.site-footer .footer-contacts span:first-child {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #c8b88f;
+  font-weight: 700;
+}
+
+.site-footer .footer-contacts a {
+  color: #f5e4be;
+  font-family: var(--font-heading), serif;
+  border-bottom: 1px dashed rgba(245, 228, 190, 0.32);
+  width: fit-content;
+}
+
+.site-footer .footer-contacts a:hover {
+  color: #f7d68e;
+}
+
 .empty-state {
   border: 1px dashed #ccb793;
   border-radius: var(--radius-md);
@@ -3699,6 +3729,537 @@ main {
 @media (min-width: 1100px) {
   .booking-advantages-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ===== Contacts page — additional sections ===== */
+
+.contacts-spotlight {
+  gap: 0.75rem;
+}
+
+.contacts-spotlight .small-badge {
+  width: fit-content;
+}
+
+.contacts-spotlight-list {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: grid;
+  gap: 0.35rem;
+  color: rgba(248, 236, 214, 0.92);
+  font-size: 0.95rem;
+}
+
+.contacts-channels-section {
+  position: relative;
+  z-index: 1;
+  padding-top: 1.6rem;
+}
+
+.contacts-channels-section .section-title .overline {
+  color: var(--gold);
+}
+
+.contacts-channels-section .section-title h2,
+.contacts-branches-section .section-title h2,
+.contacts-feedback-section h2,
+.contacts-faq-section .section-title h2 {
+  color: var(--navy);
+}
+
+.contacts-channels-section .section-title p,
+.contacts-branches-section .section-title p,
+.contacts-feedback-section p,
+.contacts-faq-section .section-title p {
+  color: var(--text-soft);
+}
+
+.contacts-channels-grid {
+  grid-template-columns: 1fr;
+}
+
+.contacts-channel-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1.05rem 1.1rem;
+  background: linear-gradient(180deg, #fffefb, #f7eedd);
+  border-color: #e2d3b3;
+}
+
+.contacts-channel-card .small-badge {
+  width: fit-content;
+  background: rgba(108, 31, 48, 0.08);
+  color: var(--burgundy);
+  border: 1px solid rgba(108, 31, 48, 0.25);
+}
+
+.contacts-channel-value {
+  display: inline-block;
+  font-family: var(--font-heading), serif;
+  font-size: 1.18rem;
+  color: var(--navy);
+  letter-spacing: 0.01em;
+  transition: color 0.2s ease;
+}
+
+a.contacts-channel-value:hover {
+  color: var(--burgundy);
+}
+
+.contacts-channel-card p {
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.contacts-main-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.contacts-main-card .small-badge {
+  width: fit-content;
+  background: rgba(13, 31, 58, 0.08);
+  color: var(--navy);
+  border: 1px solid rgba(13, 31, 58, 0.22);
+}
+
+.contacts-main-card .contacts-list p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+.contacts-main-card .contacts-list strong {
+  color: var(--navy);
+  margin-right: 0.3rem;
+}
+
+.contacts-main-card .contacts-list a {
+  color: var(--burgundy);
+  border-bottom: 1px dashed rgba(108, 31, 48, 0.35);
+}
+
+.contacts-schedule {
+  margin-top: 0.4rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid #e6d8b9;
+  background: linear-gradient(160deg, #fffaee, #f5e8c9);
+}
+
+.contacts-schedule h4 {
+  margin: 0 0 0.4rem;
+  color: var(--navy);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.contacts-schedule ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.92rem;
+}
+
+.contacts-schedule li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  color: var(--text-soft);
+}
+
+.contacts-schedule li strong {
+  color: var(--navy);
+  font-family: var(--font-heading), serif;
+}
+
+.contacts-map-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.contacts-map-meta > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  background: rgba(13, 31, 58, 0.05);
+  border: 1px solid rgba(13, 31, 58, 0.12);
+}
+
+.contacts-map-meta span {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--burgundy);
+  font-weight: 700;
+}
+
+.contacts-map-meta strong {
+  color: var(--navy);
+  font-size: 0.95rem;
+  font-family: var(--font-heading), serif;
+}
+
+.contacts-branches-section {
+  padding-top: 2rem;
+}
+
+.contacts-branches-grid {
+  grid-template-columns: 1fr;
+}
+
+.contacts-branch-card {
+  display: grid;
+  gap: 0.4rem;
+  background: linear-gradient(180deg, #fffefb, #f6ecda);
+  border-color: #e0d1b1;
+}
+
+.contacts-branch-card .small-badge {
+  width: fit-content;
+  background: linear-gradient(135deg, rgba(180, 140, 66, 0.18), rgba(108, 31, 48, 0.16));
+  color: var(--navy);
+  border: 1px solid rgba(180, 140, 66, 0.4);
+}
+
+.contacts-branch-card h3 {
+  color: var(--navy);
+}
+
+.contacts-branch-address {
+  color: var(--text-main);
+  font-weight: 600;
+  margin-top: 0.1rem;
+}
+
+.contacts-branch-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.contacts-branch-meta > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(13, 31, 58, 0.05);
+  border: 1px solid rgba(13, 31, 58, 0.12);
+}
+
+.contacts-branch-meta span {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--burgundy);
+  font-weight: 700;
+}
+
+.contacts-branch-meta strong {
+  color: var(--navy);
+  font-size: 0.92rem;
+  font-family: var(--font-heading), serif;
+}
+
+.contacts-branch-meta a {
+  color: inherit;
+}
+
+.contacts-branch-note {
+  margin-top: 0.4rem;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.contacts-feedback-section {
+  padding-top: 2rem;
+}
+
+.contacts-feedback-grid-wrap {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.contacts-feedback-aside {
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+  background: linear-gradient(160deg, rgba(11, 23, 44, 0.92), rgba(108, 31, 48, 0.78));
+  color: #f7ead0;
+  border: 1px solid rgba(241, 220, 187, 0.32);
+}
+
+.contacts-feedback-aside h2 {
+  color: #f7ead0;
+}
+
+.contacts-feedback-aside p {
+  color: rgba(248, 236, 214, 0.9);
+}
+
+.contacts-feedback-aside .small-badge {
+  width: fit-content;
+  background: rgba(243, 223, 191, 0.18);
+  color: #f7e9d0;
+  border: 1px solid rgba(243, 223, 191, 0.32);
+}
+
+.contacts-feedback-points {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: grid;
+  gap: 0.35rem;
+  color: rgba(248, 236, 214, 0.92);
+  font-size: 0.94rem;
+}
+
+.contacts-feedback-aside .outline-button {
+  width: fit-content;
+  margin-top: 0.4rem;
+  border-color: rgba(247, 234, 208, 0.7);
+  color: #f7ead0;
+  background: transparent;
+}
+
+.contacts-feedback-aside .outline-button:hover {
+  background: rgba(247, 234, 208, 0.12);
+}
+
+.contacts-feedback-form {
+  padding: 1.1rem;
+  background: linear-gradient(180deg, #fffefb, #f8eedb);
+  border-color: #e2d3b3;
+}
+
+.contacts-feedback-head h3 {
+  color: var(--navy);
+  margin-bottom: 0.2rem;
+}
+
+.contacts-feedback-head p {
+  color: var(--text-soft);
+  font-size: 0.94rem;
+}
+
+.contacts-feedback-grid {
+  grid-template-columns: 1fr;
+}
+
+.contacts-faq-section {
+  padding-top: 2rem;
+  padding-bottom: 3.4rem;
+}
+
+.contacts-faq-grid {
+  grid-template-columns: 1fr;
+}
+
+.contacts-faq-card {
+  background: linear-gradient(180deg, #fffefb, #f7eedd);
+  border-color: #e2d3b3;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.contacts-faq-card h3 {
+  color: var(--navy);
+  font-size: 1.12rem;
+}
+
+.contacts-faq-card p {
+  color: var(--text-soft);
+  font-size: 0.94rem;
+}
+
+/* ===== Account page — additional sections ===== */
+
+.account-features-section,
+.account-flow-section,
+.account-faq-section {
+  position: relative;
+  z-index: 1;
+}
+
+.account-features-section .section-title .overline,
+.account-flow-section .section-title .overline,
+.account-faq-section .section-title .overline {
+  color: var(--burgundy);
+}
+
+.account-features-section .section-title h2,
+.account-flow-section .section-title h2,
+.account-faq-section .section-title h2 {
+  color: var(--navy);
+}
+
+.account-features-section .section-title p,
+.account-flow-section .section-title p {
+  color: var(--text-soft);
+}
+
+.account-features-grid,
+.account-flow-grid,
+.account-faq-grid {
+  grid-template-columns: 1fr;
+}
+
+.account-feature-card {
+  display: grid;
+  gap: 0.55rem;
+  background: linear-gradient(180deg, #fffefb, #f6ecda);
+  border-color: #e0d1b1;
+}
+
+.account-feature-card .small-badge {
+  width: fit-content;
+  background: linear-gradient(135deg, rgba(180, 140, 66, 0.18), rgba(108, 31, 48, 0.16));
+  color: var(--navy);
+  border: 1px solid rgba(180, 140, 66, 0.4);
+}
+
+.account-feature-card h3 {
+  color: var(--navy);
+  font-size: 1.18rem;
+}
+
+.account-feature-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.account-feature-points li {
+  position: relative;
+  padding-left: 1.1rem;
+  color: var(--text-soft);
+  font-size: 0.95rem;
+}
+
+.account-feature-points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), #f3d9a2);
+  box-shadow: 0 0 0 2px rgba(180, 140, 66, 0.18);
+}
+
+.account-feature-card .cta-button.small {
+  width: fit-content;
+  margin-top: 0.35rem;
+}
+
+.account-flow-card {
+  display: grid;
+  gap: 0.35rem;
+  background: linear-gradient(160deg, rgba(11, 23, 44, 0.94), rgba(31, 53, 89, 0.86));
+  border: 1px solid rgba(236, 215, 184, 0.28);
+  color: #f6ead0;
+}
+
+.account-flow-card h3 {
+  color: #f6ead0;
+}
+
+.account-flow-card p {
+  color: rgba(246, 234, 208, 0.88);
+}
+
+.account-flow-card .small-badge {
+  width: fit-content;
+  background: rgba(243, 223, 191, 0.18);
+  color: #f7e9d0;
+  border: 1px solid rgba(243, 223, 191, 0.32);
+}
+
+.account-faq-card {
+  background: linear-gradient(180deg, #fffefb, #f7eedd);
+  border-color: #e2d3b3;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.account-faq-card h3 {
+  color: var(--navy);
+  font-size: 1.1rem;
+}
+
+.account-faq-card p {
+  color: var(--text-soft);
+  font-size: 0.94rem;
+}
+
+.account-faq-foot {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.55rem;
+  justify-items: start;
+}
+
+@media (min-width: 720px) {
+  .contacts-channels-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contacts-branches-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .contacts-feedback-grid-wrap {
+    grid-template-columns: 0.85fr 1.15fr;
+    align-items: stretch;
+  }
+
+  .contacts-feedback-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .contacts-faq-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .account-features-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .account-flow-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .account-faq-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .account-faq-foot {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
+
+@media (max-width: 719px) {
+  .contacts-map-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .contacts-branch-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .contacts-feedback-form {
+    padding: 0.95rem;
   }
 }
 
