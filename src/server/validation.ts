@@ -1,6 +1,30 @@
 import { AppointmentStatus, CreateAppointmentInput, Master, RepairType, Service, ServiceFilters, UserRole, WatchCategory } from "@/types";
 import { badRequest } from "./errors";
 
+// ─── Format validators ────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+const PHONE_RE = /^\+?[1-9]\d{6,14}$/;
+
+/** Strips all spaces and dashes so "+7 999 123-45-67" → "+79991234567" */
+const normalizePhone = (phone: string) => phone.replace(/[\s\-()]/g, "");
+
+export const validateEmail = (email: string): string => {
+  const v = email.trim().toLowerCase();
+  if (!v) throw badRequest("Введите email");
+  if (!EMAIL_RE.test(v)) throw badRequest("Некорректный формат email");
+  return v;
+};
+
+export const validatePhone = (phone: string): string => {
+  const v = normalizePhone(phone.trim());
+  if (!v) throw badRequest("Введите номер телефона");
+  if (!PHONE_RE.test(v)) throw badRequest("Некорректный формат номера телефона");
+  return v;
+};
+
+// ─── Other validators ─────────────────────────────────────────────────────────
+
 const categories: WatchCategory[] = ["mechanical", "quartz", "smart"];
 const repairTypes: RepairType[] = ["glass", "cleaning", "restoration", "battery", "waterproofing"];
 const categoriesWithAll: Array<WatchCategory | "all"> = ["mechanical", "quartz", "smart", "all"];

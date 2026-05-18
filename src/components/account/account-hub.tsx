@@ -18,6 +18,27 @@ const roleRoute = {
   admin: "/admin"
 } as const;
 
+// ─── Client-side format validators ───────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+const PHONE_RE = /^\+?[1-9]\d{6,14}$/;
+const normalizePhone = (p: string) => p.replace(/[\s\-()]/g, "");
+
+function validateEmailField(value: string): string | null {
+  if (!value.trim()) return "Введите email";
+  if (!EMAIL_RE.test(value.trim())) return "Некорректный формат email";
+  return null;
+}
+
+function validatePhoneField(value: string): string | null {
+  const v = normalizePhone(value.trim());
+  if (!v) return "Введите номер телефона";
+  if (!PHONE_RE.test(v)) return "Некорректный формат номера телефона (пример: +79991234567)";
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function AccountHub() {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("email");
@@ -29,6 +50,10 @@ export function AccountHub() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Field-level validation errors
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
     const session = getSession();
@@ -70,12 +95,32 @@ export function AccountHub() {
 
   const handleEmailLogin = (event: FormEvent) => {
     event.preventDefault();
+    const err = validateEmailField(email);
+    if (err) { setEmailError(err); return; }
+    setEmailError(null);
     run(() => loginWithEmail(email, password, emailCode), "Вход выполнен.");
   };
 
   const handlePhoneLogin = (event: FormEvent) => {
     event.preventDefault();
+    const err = validatePhoneField(phone);
+    if (err) { setPhoneError(err); return; }
+    setPhoneError(null);
     run(() => loginWithPhone(phone, phoneCode), "Вход выполнен.");
+  };
+
+  const handleRequestEmailCode = () => {
+    const err = validateEmailField(email);
+    if (err) { setEmailError(err); return; }
+    setEmailError(null);
+    run(() => requestEmailCode(email), "Письмо отправлено.");
+  };
+
+  const handleRequestPhoneCode = () => {
+    const err = validatePhoneField(phone);
+    if (err) { setPhoneError(err); return; }
+    setPhoneError(null);
+    run(() => requestPhoneCode(phone), "SMS отправлено.");
   };
 
   return (
@@ -116,7 +161,18 @@ export function AccountHub() {
             <form className="account-panel" onSubmit={handleEmailLogin}>
               <div className="field">
                 <label htmlFor="account-email">Email</label>
-                <input id="account-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+                <input
+                  id="account-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setEmailError(validateEmailField(event.target.value));
+                  }}
+                  aria-invalid={!!emailError}
+                  aria-describedby={emailError ? "account-email-error" : undefined}
+                />
+                {emailError ? <span id="account-email-error" className="field-error">{emailError}</span> : null}
               </div>
               <div className="field">
                 <label htmlFor="account-password">Пароль</label>
@@ -136,7 +192,7 @@ export function AccountHub() {
                   type="button"
                   className="outline-button dark"
                   disabled={loading}
-                  onClick={() => run(() => requestEmailCode(email), "Письмо отправлено.")}
+                  onClick={handleRequestEmailCode}
                 >
                   Получить код
                 </button>
@@ -149,7 +205,17 @@ export function AccountHub() {
             <form className="account-panel" onSubmit={handlePhoneLogin}>
               <div className="field">
                 <label htmlFor="account-phone">Телефон</label>
-                <input id="account-phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
+                <input
+                  id="account-phone"
+                  value={phone}
+                  onChange={(event) => {
+                    setPhone(event.target.value);
+                    setPhoneError(validatePhoneField(event.target.value));
+                  }}
+                  aria-invalid={!!phoneError}
+                  aria-describedby={phoneError ? "account-phone-error" : undefined}
+                />
+                {phoneError ? <span id="account-phone-error" className="field-error">{phoneError}</span> : null}
               </div>
               <div className="field">
                 <label htmlFor="account-phone-code">Код из SMS</label>
@@ -160,7 +226,7 @@ export function AccountHub() {
                   type="button"
                   className="outline-button dark"
                   disabled={loading}
-                  onClick={() => run(() => requestPhoneCode(phone), "SMS отправлено.")}
+                  onClick={handleRequestPhoneCode}
                 >
                   Получить код
                 </button>

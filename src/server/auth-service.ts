@@ -5,6 +5,7 @@ import { sendEmailCode, sendSmsCode } from "./notifications";
 import { getRepository } from "./repositories";
 import { hashPassword, verifyPassword } from "./security/password";
 import { issueSession } from "./security/session";
+import { validateEmail, validatePhone } from "./validation";
 
 export const DEMO_SMS_CODE = "1234";
 export const DEMO_EMAIL_CODE = "2468";
@@ -19,17 +20,15 @@ const generateCode = () =>
     : DEMO_SMS_CODE;
 
 export async function requestPhoneCode(phone: string) {
-  if (!phone.trim()) {
-    throw badRequest("Введите номер телефона");
-  }
+  const normalizedPhone = validatePhone(phone);
 
   const code = generateCode();
-  codeStore.set(phone.trim(), {
+  codeStore.set(normalizedPhone, {
     code,
     expiresAt: Date.now() + 1000 * 60 * 10
   });
 
-  await sendSmsCode(phone.trim(), code);
+  await sendSmsCode(normalizedPhone, code);
 
   return {
     success: true,
@@ -38,10 +37,7 @@ export async function requestPhoneCode(phone: string) {
 }
 
 export async function requestEmailCode(email: string) {
-  const normalizedEmail = normalize(email);
-  if (!normalizedEmail) {
-    throw badRequest("Введите email");
-  }
+  const normalizedEmail = validateEmail(email);
 
   const code = process.env.NODE_ENV === "production"
     ? Math.floor(1000 + Math.random() * 9000).toString()
@@ -61,7 +57,7 @@ export async function requestEmailCode(email: string) {
 }
 
 export async function loginWithPhone(phone: string, code: string): Promise<AuthSession> {
-  const normalizedPhone = phone.trim();
+  const normalizedPhone = validatePhone(phone);
   const stored = codeStore.get(normalizedPhone);
   const demoAllowed = isDemoAuthEnabled() && code === DEMO_SMS_CODE;
 
@@ -86,12 +82,12 @@ export async function loginWithPhone(phone: string, code: string): Promise<AuthS
 }
 
 export async function loginWithEmail(email: string, password: string, code: string): Promise<AuthSession> {
-  if (!email.trim() || !password.trim() || !code.trim()) {
+  if (!password.trim() || !code.trim()) {
     throw badRequest("Email, пароль и код обязательны");
   }
 
   const repository = getRepository();
-  const normalizedEmail = normalize(email);
+  const normalizedEmail = validateEmail(email);
   const stored = emailCodeStore.get(normalizedEmail);
   const demoAllowed = isDemoAuthEnabled() && code === DEMO_EMAIL_CODE;
 
