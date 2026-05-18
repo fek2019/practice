@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   getSession,
   loginWithEmail,
@@ -207,6 +207,16 @@ export function SiteHeader() {
     setOpen(false);
     setAccountOpen((value) => !value);
   };
+
+  useEffect(() => {
+    const handleFooterAccountOpen = () => {
+      setOpen(true);
+      setAccountOpen(true);
+    };
+
+    window.addEventListener("watchlab:open-account", handleFooterAccountOpen);
+    return () => window.removeEventListener("watchlab:open-account", handleFooterAccountOpen);
+  }, []);
 
   return (
     <header className="site-header">

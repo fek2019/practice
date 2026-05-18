@@ -57,6 +57,11 @@ const emptyMaster: Omit<Master, "id"> = {
 };
 
 const statusOptions: AppointmentStatus[] = ["pending", "in-progress", "ready", "done", "cancelled"];
+const roleLabels: Record<User["role"], string> = {
+  client: "Клиент",
+  master: "Мастер",
+  admin: "Админ"
+};
 
 export function AdminDashboard() {
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -72,6 +77,7 @@ export function AdminDashboard() {
   const [priceEditor, setPriceEditor] = useState<Record<string, string>>({});
   const [period, setPeriod] = useState({ from: "", to: "" });
   const [userRoleFilter, setUserRoleFilter] = useState<"all" | User["role"]>("all");
+  const [userEmailSearch, setUserEmailSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -113,8 +119,19 @@ export function AdminDashboard() {
   }, [session, reload]);
 
   const filteredUsers = useMemo(
-    () => users.filter((user) => userRoleFilter === "all" || user.role === userRoleFilter),
-    [users, userRoleFilter]
+    () => {
+      const query = userEmailSearch.trim().toLowerCase();
+      return users.filter((user) => {
+        const roleMatch = userRoleFilter === "all" || user.role === userRoleFilter;
+        if (!roleMatch) return false;
+        if (!query) return true;
+
+        return [user.email, user.name, user.phone]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(query));
+      });
+    },
+    [users, userRoleFilter, userEmailSearch]
   );
   const maxPopular = useMemo(() => Math.max(...(stats?.popularServices.map((item) => item.bookings) ?? [1])), [stats]);
   const maxMasterLoad = useMemo(() => Math.max(...(stats?.masterLoad.map((item) => item.orders) ?? [1])), [stats]);
@@ -129,6 +146,35 @@ export function AdminDashboard() {
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Операция завершилась с ошибкой.");
     }
+  };
+
+  const getAutoLinkedMasterId = (user: User) => {
+    if (user.linkedMasterId) return user.linkedMasterId;
+
+    const linkedMasterIds = new Set(
+      users
+        .filter((candidate) => candidate.id !== user.id && candidate.role === "master" && candidate.linkedMasterId)
+        .map((candidate) => candidate.linkedMasterId)
+    );
+    return masters.find((master) => !linkedMasterIds.has(master.id))?.id ?? masters[0]?.id ?? "";
+  };
+
+  const handleUserRoleChange = async (user: User, role: User["role"]) => {
+    if (role === user.role) return;
+
+    const confirmed = window.confirm(
+      `Изменить роль пользователя ${user.name} с "${roleLabels[user.role]}" на "${roleLabels[role]}"?`
+    );
+    if (!confirmed) return;
+
+    await withRefresh(
+      () =>
+        adminUpdateUser(user.id, {
+          role,
+          linkedMasterId: role === "master" ? getAutoLinkedMasterId(user) : ""
+        }).then(() => undefined),
+      "Роль пользователя обновлена."
+    );
   };
 
   const onCreateService = async (event: FormEvent) => {
@@ -247,14 +293,26 @@ export function AdminDashboard() {
       <section className="card">
         <div className="cabinet-section-head">
           <h3>Пользователи</h3>
-          <div className="field compact-select">
-            <label htmlFor="role-filter">Сортировка</label>
-            <select id="role-filter" value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value as typeof userRoleFilter)}>
-              <option value="all">Все</option>
-              <option value="client">Клиенты</option>
-              <option value="master">Мастера</option>
-              <option value="admin">Админы</option>
-            </select>
+          <div className="filters-grid compact-filters">
+            <div className="field">
+              <label htmlFor="user-email-search">Поиск по почте</label>
+              <input
+                id="user-email-search"
+                type="search"
+                placeholder="ivan.petrov@example.com"
+                value={userEmailSearch}
+                onChange={(event) => setUserEmailSearch(event.target.value)}
+              />
+            </div>
+            <div className="field compact-select">
+              <label htmlFor="role-filter">Роль</label>
+              <select id="role-filter" value={userRoleFilter} onChange={(event) => setUserRoleFilter(event.target.value as typeof userRoleFilter)}>
+                <option value="all">Все</option>
+                <option value="client">Клиенты</option>
+                <option value="master">Мастера</option>
+                <option value="admin">Админы</option>
+              </select>
+            </div>
           </div>
         </div>
         <div className="table-wrap">
@@ -263,7 +321,6 @@ export function AdminDashboard() {
               <tr>
                 <th>Пользователь</th>
                 <th>Роль</th>
-                <th>Связанный мастер</th>
                 <th>Доступ</th>
                 <th>Действия</th>
               </tr>
@@ -275,41 +332,12 @@ export function AdminDashboard() {
                   <td>
                     <select
                       value={user.role}
-                      onChange={(event) =>
-                        withRefresh(
-                          () =>
-                            adminUpdateUser(user.id, {
-                              role: event.target.value as User["role"],
-                              linkedMasterId: event.target.value === "master" ? user.linkedMasterId : ""
-                            }).then(() => undefined),
-                          "Роль пользователя обновлена."
-                        )
-                      }
+                      onChange={(event) => handleUserRoleChange(user, event.target.value as User["role"])}
                     >
                       <option value="client">Клиент</option>
                       <option value="master">Мастер</option>
                       <option value="admin">Админ</option>
                     </select>
-                  </td>
-                  <td>
-                    {user.role === "master" ? (
-                      <select
-                        value={user.linkedMasterId ?? ""}
-                        onChange={(event) =>
-                          withRefresh(
-                            () => adminUpdateUser(user.id, { linkedMasterId: event.target.value }).then(() => undefined),
-                            "Профиль мастера назначен."
-                          )
-                        }
-                      >
-                        <option value="">Не выбран</option>
-                        {masters.map((master) => (
-                          <option key={master.id} value={master.id}>{master.name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="hint">-</span>
-                    )}
                   </td>
                   <td>{user.isBanned ? "Заблокирован" : "Активен"}</td>
                   <td>
@@ -337,6 +365,13 @@ export function AdminDashboard() {
                   </td>
                 </tr>
               ))}
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>
+                    <span className="hint">Пользователь с такой почтой не найден.</span>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -482,10 +517,6 @@ export function AdminDashboard() {
               <div className="field">
                 <label htmlFor="master-exp">Опыт</label>
                 <input id="master-exp" type="number" value={masterForm.experience} onChange={(event) => setMasterForm((state) => ({ ...state, experience: Number(event.target.value) || 1 }))} />
-              </div>
-              <div className="field">
-                <label htmlFor="master-rating">Рейтинг</label>
-                <input id="master-rating" type="number" step={0.1} value={masterForm.rating} onChange={(event) => setMasterForm((state) => ({ ...state, rating: Number(event.target.value) || 4.5 }))} />
               </div>
             </div>
             <button className="cta-button" type="submit">Добавить мастера</button>

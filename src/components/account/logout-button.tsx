@@ -8,7 +8,7 @@ export function LogoutButton() {
 
   const handleLogout = () => {
     logout();
-    router.push("/account");
+    router.push("/");
   };
 
   return (

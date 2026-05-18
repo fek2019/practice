@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FooterAccountLink } from "./footer-account-link";
 
 const footerSections = [
   {
@@ -8,16 +9,8 @@ const footerSections = [
       { href: "/services", label: "Услуги" },
       { href: "/masters", label: "Мастера" },
       { href: "/booking", label: "Запись онлайн" },
+      { href: "/account", label: "Кабинет", account: true },
       { href: "/contacts", label: "Контакты" }
-    ]
-  },
-  {
-    title: "Кабинеты",
-    links: [
-      { href: "/account", label: "Вход в кабинет" },
-      { href: "/account/client", label: "Кабинет клиента" },
-      { href: "/account/master", label: "Кабинет мастера" },
-      { href: "/admin", label: "Админ-панель" }
     ]
   }
 ];
@@ -40,7 +33,11 @@ export function SiteFooter() {
             <ul>
               {section.links.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href}>{link.label}</Link>
+                  {"account" in link && link.account ? (
+                    <FooterAccountLink />
+                  ) : (
+                    <Link href={link.href}>{link.label}</Link>
+                  )}
                 </li>
               ))}
             </ul>

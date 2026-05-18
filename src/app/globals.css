@@ -2385,8 +2385,16 @@ main {
   isolation: isolate;
   overflow: clip;
   background:
-    radial-gradient(circle at 82% 12%, rgba(184, 138, 63, 0.24), transparent 36%),
-    linear-gradient(160deg, #0d1c35 0%, #1f3558 44%, #f4efe4 44%, #f4efe4 100%);
+    radial-gradient(circle at 82% 12%, rgba(184, 138, 63, 0.22), transparent 34%),
+    linear-gradient(
+      150deg,
+      #0d1c35 0%,
+      #172a49 27%,
+      #3b5370 46%,
+      #d4c5aa 64%,
+      #f4efe4 78%,
+      #fbf7ef 100%
+    );
 }
 
 .contacts-page::before {
@@ -2396,9 +2404,9 @@ main {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 14% 78%, rgba(110, 35, 53, 0.18), transparent 35%),
+    radial-gradient(circle at 14% 78%, rgba(110, 35, 53, 0.12), transparent 38%),
     repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 30px);
-  opacity: 0.48;
+  opacity: 0.32;
 }
 
 .contacts-hero {
@@ -4131,7 +4139,27 @@ a.contacts-channel-value:hover {
 }
 
 .contacts-branches-section {
+  position: relative;
+  z-index: 1;
   padding-top: 2rem;
+}
+
+.contacts-branches-section .section-title {
+  position: relative;
+  z-index: 1;
+}
+
+.contacts-branches-section .section-title .overline {
+  color: var(--burgundy);
+}
+
+.contacts-branches-section .section-title h2 {
+  color: #f5ead4;
+}
+
+.contacts-branches-section .section-title p {
+  color: rgba(245, 233, 213, 0.84);
+  font-weight: 500;
 }
 
 .contacts-branches-grid {
@@ -4434,7 +4462,7 @@ a.contacts-channel-value:hover {
 
 @media (min-width: 980px) {
   .footer-grid {
-    grid-template-columns: 1.35fr 0.82fr 0.95fr 1fr;
+    grid-template-columns: 1.35fr 0.82fr 1fr;
   }
 
   .account-nav-wrap {
@@ -4490,34 +4518,6 @@ a.contacts-channel-value:hover {
 
 .cabinet-logout-button:hover {
   background: #f2e6d0;
-}
-
-.logout-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(7, 17, 34, 0.58);
-  backdrop-filter: blur(8px);
-}
-
-.logout-modal {
-  width: min(440px, 100%);
-  display: grid;
-  gap: 0.8rem;
-  background: linear-gradient(180deg, #fffefb, #f7eedd);
-  color: var(--text-main);
-  border-color: #e2d3b3;
-}
-
-.logout-modal h2 {
-  color: var(--navy);
-}
-
-.logout-modal .actions-row {
-  margin-top: 0.2rem;
 }
 
 @media (min-width: 720px) {
