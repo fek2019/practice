@@ -1,5 +1,27 @@
 import Link from "next/link";
 
+const footerSections = [
+  {
+    title: "Разделы",
+    links: [
+      { href: "/", label: "Главная" },
+      { href: "/services", label: "Услуги" },
+      { href: "/masters", label: "Мастера" },
+      { href: "/booking", label: "Запись онлайн" },
+      { href: "/contacts", label: "Контакты" }
+    ]
+  },
+  {
+    title: "Кабинеты",
+    links: [
+      { href: "/account", label: "Вход в кабинет" },
+      { href: "/account/client", label: "Кабинет клиента" },
+      { href: "/account/master", label: "Кабинет мастера" },
+      { href: "/admin", label: "Админ-панель" }
+    ]
+  }
+];
+
 export function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -7,30 +29,24 @@ export function SiteFooter() {
         <div>
           <h3>Watch Lab</h3>
           <p>
-            Премиальный сервис ремонта часов. Прозрачные статусы, фиксированная
-            стоимость после диагностики и онлайн-запись без звонков.
+            Премиальный сервис ремонта часов: онлайн-запись, прозрачные статусы,
+            кабинеты клиента, мастера и администратора.
           </p>
         </div>
-        <div>
-          <h4>Разделы</h4>
-          <ul>
-            <li>
-              <Link href="/services">Каталог услуг</Link>
-            </li>
-            <li>
-              <Link href="/masters">Наши мастера</Link>
-            </li>
-            <li>
-              <Link href="/booking">Онлайн-запись</Link>
-            </li>
-            <li>
-              <Link href="/account">Личный кабинет</Link>
-            </li>
-            <li>
-              <Link href="/contacts">Контакты</Link>
-            </li>
-          </ul>
-        </div>
+
+        {footerSections.map((section) => (
+          <div key={section.title}>
+            <h4>{section.title}</h4>
+            <ul>
+              {section.links.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href}>{link.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
         <div>
           <h4>Контакты</h4>
           <ul className="footer-contacts">
@@ -44,11 +60,11 @@ export function SiteFooter() {
             </li>
             <li>
               <span>Адрес</span>
-              <span>Москва, ул. Покровка, 12, ст. 4</span>
+              <Link href="/contacts">Москва, ул. Покровка, 12</Link>
             </li>
             <li>
               <span>Часы работы</span>
-              <span>Ежедневно 10:00 — 21:00</span>
+              <span>Ежедневно 10:00 - 21:00</span>
             </li>
           </ul>
         </div>

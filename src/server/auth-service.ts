@@ -12,8 +12,6 @@ export const DEMO_EMAIL_CODE = "2468";
 const codeStore = new Map<string, { code: string; expiresAt: number }>();
 const emailCodeStore = new Map<string, { code: string; expiresAt: number }>();
 
-const normalize = (value: string) => value.trim().toLowerCase();
-
 const generateCode = () =>
   process.env.NODE_ENV === "production"
     ? Math.floor(1000 + Math.random() * 9000).toString()

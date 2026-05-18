@@ -1429,6 +1429,14 @@ main {
   padding: 0.56rem 0.74rem;
 }
 
+.nav-link-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
 .site-nav .nav-link::after {
   content: "";
   position: absolute;
@@ -1493,6 +1501,64 @@ main {
   background: rgba(240, 211, 155, 0.12);
   border-color: rgba(238, 212, 162, 0.64);
   color: #f6e4c0;
+}
+
+.account-nav-wrap {
+  position: relative;
+}
+
+.header-account-dropdown {
+  display: grid;
+  gap: 0.82rem;
+  margin-top: 0.45rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid #e2d3b3;
+  background: linear-gradient(180deg, #fffefb, #f7eedd);
+  box-shadow: 0 22px 50px rgba(6, 15, 31, 0.3);
+  color: var(--text-main);
+  z-index: 80;
+}
+
+.header-account-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.header-account-head h3 {
+  margin: 0.35rem 0 0;
+  color: var(--navy);
+}
+
+.account-dropdown-close {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid #d5c1a1;
+  background: #fff9ee;
+  color: var(--navy);
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.header-account-dropdown .auth-method-switch {
+  width: 100%;
+}
+
+.header-account-dropdown .account-panel {
+  gap: 0.7rem;
+}
+
+.header-account-dropdown .actions-row {
+  gap: 0.55rem;
+}
+
+.header-account-dropdown .cta-button,
+.header-account-dropdown .outline-button {
+  padding: 0.58rem 0.9rem;
 }
 
 .section {
@@ -4364,6 +4430,94 @@ a.contacts-channel-value:hover {
   display: grid;
   gap: 0.55rem;
   justify-items: start;
+}
+
+@media (min-width: 980px) {
+  .footer-grid {
+    grid-template-columns: 1.35fr 0.82fr 0.95fr 1fr;
+  }
+
+  .account-nav-wrap {
+    position: relative;
+  }
+
+  .header-account-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.7rem);
+    width: min(380px, calc(100vw - 2rem));
+    margin-top: 0;
+  }
+}
+
+.cabinet-profile-card {
+  background:
+    radial-gradient(circle at 88% 18%, rgba(184, 138, 63, 0.12), transparent 36%),
+    linear-gradient(180deg, #fffefb, #f7eedd);
+  color: var(--navy);
+  border-color: #e2d3b3;
+}
+
+.cabinet-profile-card h2 {
+  color: var(--navy);
+}
+
+.cabinet-profile-card .hint {
+  color: var(--text-soft);
+}
+
+.cabinet-profile-card .small-badge {
+  background: #efe0c4;
+  color: var(--navy-soft);
+}
+
+.cabinet-profile-summary {
+  display: grid;
+  gap: 0.85rem;
+  align-content: space-between;
+}
+
+.cabinet-profile-form .field label {
+  color: var(--navy-soft);
+}
+
+.cabinet-logout-button {
+  width: fit-content;
+  border-color: #c5b290;
+  color: var(--navy);
+  background: #fffaf1;
+}
+
+.cabinet-logout-button:hover {
+  background: #f2e6d0;
+}
+
+.logout-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(7, 17, 34, 0.58);
+  backdrop-filter: blur(8px);
+}
+
+.logout-modal {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 0.8rem;
+  background: linear-gradient(180deg, #fffefb, #f7eedd);
+  color: var(--text-main);
+  border-color: #e2d3b3;
+}
+
+.logout-modal h2 {
+  color: var(--navy);
+}
+
+.logout-modal .actions-row {
+  margin-top: 0.2rem;
 }
 
 @media (min-width: 720px) {

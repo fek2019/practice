@@ -34,6 +34,7 @@ import {
   User,
   WatchCategory
 } from "@/types";
+import { LogoutButton } from "../account/logout-button";
 import { StatusBadge } from "../ui/status-badge";
 
 const emptyService: Omit<Service, "id"> = {
@@ -164,10 +165,13 @@ export function AdminDashboard() {
   return (
     <div className="cabinet-shell" data-reveal="up">
       <section className="panel cabinet-profile-card">
-        <div>
-          <span className="small-badge">Профиль администратора</span>
-          <h2>{profile.name}</h2>
-          <p className="hint">{profile.email || profile.phone}</p>
+        <div className="cabinet-profile-summary">
+          <div>
+            <span className="small-badge">Профиль администратора</span>
+            <h2>{profile.name}</h2>
+            <p className="hint">{profile.email || profile.phone}</p>
+          </div>
+          <LogoutButton />
         </div>
         <form className="form-grid cabinet-profile-form" onSubmit={onProfileSubmit}>
           <div className="field">
