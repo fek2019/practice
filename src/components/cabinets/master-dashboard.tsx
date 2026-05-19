@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getProfile, listMasterAppointments, listServices, updateAppointmentStatus, updateProfile } from "@/lib/api-client";
-import { getSession } from "@/lib/auth-client";
+import { getSession, logout } from "@/lib/auth-client";
 import { formatDate, getStatusLabel } from "@/lib/format";
 import { Appointment, AppointmentStatus, AuthSession, Service, User } from "@/types";
 import { StatusBadge } from "../ui/status-badge";
@@ -20,6 +21,7 @@ const getDateDiffDays = (date: string) => {
 };
 
 export function MasterDashboard() {
+  const router = useRouter();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -53,11 +55,22 @@ export function MasterDashboard() {
     }
     const loadData = async () => {
       setLoading(true);
-      await reload(session.linkedMasterId!);
-      setLoading(false);
+      try {
+        await reload(session.linkedMasterId!);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (msg.includes("устарела") || msg.includes("авторизац") || msg.includes("401")) {
+          logout();
+          router.replace("/account");
+          return;
+        }
+        setError(msg || "Не удалось загрузить данные.");
+      } finally {
+        setLoading(false);
+      }
     };
     loadData();
-  }, [session, reload]);
+  }, [session, reload, router]);
 
   const filteredForCalendar = useMemo(() => {
     return appointments.filter((appointment) => {

@@ -110,7 +110,7 @@ export const parseServiceFilters = (params: URLSearchParams): ServiceFilters => 
   category: parseEnum(params.get("category") || "all", categoriesWithAll, "category"),
   repairType: parseEnum(params.get("repairType") || "all", repairTypesWithAll, "repairType"),
   minPrice: Number(params.get("minPrice") || 0),
-  maxPrice: Number(params.get("maxPrice") || Number.MAX_SAFE_INTEGER)
+  maxPrice: Number(params.get("maxPrice") || 2_147_483_647) // PostgreSQL integer max
 });
 
 export const parseServiceInput = (body: Record<string, unknown>): Omit<Service, "id"> => ({

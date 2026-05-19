@@ -21,7 +21,8 @@ import {
   updateAppointmentStatus,
   updateProfile
 } from "@/lib/api-client";
-import { getSession } from "@/lib/auth-client";
+import { getSession, logout } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import { formatCurrency, getStatusLabel } from "@/lib/format";
 import {
   AdminStats,
@@ -58,6 +59,7 @@ const emptyMaster: Omit<Master, "id"> = {
 const statusOptions: AppointmentStatus[] = ["pending", "in-progress", "ready", "done", "cancelled"];
 
 export function AdminDashboard() {
+  const router = useRouter();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -105,11 +107,22 @@ export function AdminDashboard() {
     }
     const load = async () => {
       setLoading(true);
-      await reload();
-      setLoading(false);
+      try {
+        await reload();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (msg.includes("устарела") || msg.includes("авторизац") || msg.includes("401")) {
+          logout();
+          router.replace("/account");
+          return;
+        }
+        setError(msg || "Не удалось загрузить данные.");
+      } finally {
+        setLoading(false);
+      }
     };
     load();
-  }, [session, reload]);
+  }, [session, reload, router]);
 
   const filteredUsers = useMemo(
     () => users.filter((user) => userRoleFilter === "all" || user.role === userRoleFilter),

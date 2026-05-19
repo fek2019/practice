@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   createReview,
   getProfile,
@@ -10,12 +11,13 @@ import {
   listServices,
   updateProfile
 } from "@/lib/api-client";
-import { getSession } from "@/lib/auth-client";
+import { getSession, logout } from "@/lib/auth-client";
 import { formatDate } from "@/lib/format";
 import { Appointment, AuthSession, Master, Review, Service, User } from "@/types";
 import { StatusBadge } from "../ui/status-badge";
 
 export function ClientDashboard() {
+  const router = useRouter();
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -61,12 +63,21 @@ export function ClientDashboard() {
       setLoading(true);
       try {
         await reload();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        // Сессия устарела (сменилась БД или пользователь удалён) — разлогиниваем
+        if (msg.includes("устарела") || msg.includes("авторизац") || msg.includes("401")) {
+          logout();
+          router.replace("/account");
+          return;
+        }
+        setError(msg || "Не удалось загрузить данные.");
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [session]);
+  }, [session, router]);
 
   const serviceMap = useMemo(() => new Map(services.map((item) => [item.id, item])), [services]);
   const masterMap = useMemo(() => new Map(masters.map((item) => [item.id, item])), [masters]);

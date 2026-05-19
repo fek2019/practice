@@ -106,6 +106,20 @@ create table if not exists reviews (
   created_at timestamptz not null default now()
 );
 
+-- OTP codes for email / phone verification.
+-- Codes expire automatically; old rows are cleaned up on insert.
+create table if not exists auth_codes (
+  id uuid primary key default gen_random_uuid(),
+  identifier text not null,           -- normalized email or phone
+  code text not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists auth_codes_identifier_idx on auth_codes(identifier);
+-- Auto-drop expired rows so the table stays small
+create index if not exists auth_codes_expires_idx on auth_codes(expires_at);
+
 create unique index if not exists appointments_master_slot_active_uidx
   on appointments(master_id, date, time_slot)
   where status <> 'done';
@@ -151,3 +165,31 @@ alter table users enable row level security;
 alter table appointments enable row level security;
 alter table quick_requests enable row level security;
 alter table reviews enable row level security;
+alter table auth_codes enable row level security;
+
+-- service_role bypasses RLS by default in Supabase.
+-- The policies below add explicit anon/authenticated access where needed.
+
+-- Публичное чтение услуг и мастеров (для страницы каталога без авторизации)
+create policy if not exists "services: public read"
+  on services for select using (true);
+
+create policy if not exists "masters: public read"
+  on masters for select using (true);
+
+-- Все остальные таблицы доступны только через service_role (серверный код)
+-- Анонимный/authenticated доступ закрыт — фронтенд обращается только через API-роуты
+create policy if not exists "users: deny anon"
+  on users for all using (false);
+
+create policy if not exists "appointments: deny anon"
+  on appointments for all using (false);
+
+create policy if not exists "quick_requests: deny anon"
+  on quick_requests for all using (false);
+
+create policy if not exists "reviews: deny anon"
+  on reviews for all using (false);
+
+create policy if not exists "auth_codes: deny anon"
+  on auth_codes for all using (false);

@@ -24,12 +24,12 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 # ── Mail.ru ───────────────────────────────────────────────────────────────────
 # 1. Включите доступ по паролю в настройках Mail.ru
 # 2. Создайте «Пароль для внешних приложений»
-# SMTP_HOST=smtp.mail.ru
-# SMTP_PORT=465
-# SMTP_SECURE=true
-# SMTP_USER=your@mail.ru
-# SMTP_PASS=xxxxxxxxxxxx
-# EMAIL_FROM=WatchLab <your@mail.ru>
+SMTP_HOST= "smtp.mail.ru"
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=zzhhl@mail.ru
+SMTP_PASS=hW1g4D5KgqIFItcx76D3
+EMAIL_FROM=WatchLab <zzhhl@mail.ru> 
 
 # ── Gmail ─────────────────────────────────────────────────────────────────────
 # 1. Включите двухфакторную аутентификацию в Google-аккаунте

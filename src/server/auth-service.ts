@@ -1,4 +1,5 @@
 import { AuthSession, UserRole } from "@/types";
+import { storeCode, verifyCode } from "./auth-codes";
 import { isDemoAuthEnabled } from "./config";
 import { badRequest, forbidden, unauthorized } from "./errors";
 import { sendEmailCode, sendSmsCode } from "./notifications";
@@ -9,69 +10,66 @@ import { validateEmail, validatePhone } from "./validation";
 
 export const DEMO_SMS_CODE = "1234";
 export const DEMO_EMAIL_CODE = "2468";
-const codeStore = new Map<string, { code: string; expiresAt: number }>();
-const emailCodeStore = new Map<string, { code: string; expiresAt: number }>();
-
-const normalize = (value: string) => value.trim().toLowerCase();
 
 const generateCode = () =>
   process.env.NODE_ENV === "production"
     ? Math.floor(1000 + Math.random() * 9000).toString()
     : DEMO_SMS_CODE;
 
+const generateEmailCode = () =>
+  process.env.NODE_ENV === "production"
+    ? Math.floor(1000 + Math.random() * 9000).toString()
+    : DEMO_EMAIL_CODE;
+
+// ─── Request code ─────────────────────────────────────────────────────────────
+
 export async function requestPhoneCode(phone: string) {
   const normalizedPhone = validatePhone(phone);
-
   const code = generateCode();
-  codeStore.set(normalizedPhone, {
-    code,
-    expiresAt: Date.now() + 1000 * 60 * 10
-  });
 
+  await storeCode(`phone:${normalizedPhone}`, code);
   await sendSmsCode(normalizedPhone, code);
 
   return {
     success: true,
-    debugCode: process.env.NODE_ENV === "production" ? undefined : code
+    debugCode: process.env.NODE_ENV === "production" ? undefined : code,
   };
 }
 
 export async function requestEmailCode(email: string) {
   const normalizedEmail = validateEmail(email);
+  const code = generateEmailCode();
 
-  const code = process.env.NODE_ENV === "production"
-    ? Math.floor(1000 + Math.random() * 9000).toString()
-    : DEMO_EMAIL_CODE;
-
-  emailCodeStore.set(normalizedEmail, {
-    code,
-    expiresAt: Date.now() + 1000 * 60 * 10
-  });
-
+  await storeCode(`email:${normalizedEmail}`, code);
   await sendEmailCode(normalizedEmail, code);
 
   return {
     success: true,
-    debugCode: process.env.NODE_ENV === "production" ? undefined : code
+    debugCode: process.env.NODE_ENV === "production" ? undefined : code,
   };
 }
 
-export async function loginWithPhone(phone: string, code: string): Promise<AuthSession> {
-  const normalizedPhone = validatePhone(phone);
-  const stored = codeStore.get(normalizedPhone);
-  const demoAllowed = isDemoAuthEnabled() && code === DEMO_SMS_CODE;
+// ─── Login ────────────────────────────────────────────────────────────────────
 
-  if ((!stored || stored.expiresAt < Date.now() || stored.code !== code) && !demoAllowed) {
-    throw unauthorized("Неверный код подтверждения");
+export async function loginWithPhone(
+  phone: string,
+  code: string
+): Promise<AuthSession> {
+  const normalizedPhone = validatePhone(phone);
+
+  const demoAllowed = isDemoAuthEnabled() && code === DEMO_SMS_CODE;
+  const codeValid = demoAllowed || (await verifyCode(`phone:${normalizedPhone}`, code));
+
+  if (!codeValid) {
+    throw unauthorized("Неверный или просроченный код подтверждения");
   }
 
-  codeStore.delete(normalizedPhone);
-
   const repository = getRepository();
-  const user = (await repository.getUserByPhone(normalizedPhone)) ??
+  const user =
+    (await repository.getUserByPhone(normalizedPhone)) ??
     (await repository.createClientUser({
       name: "Новый клиент",
-      phone: normalizedPhone
+      phone: normalizedPhone,
     }));
 
   if (user.isBanned) {
@@ -81,28 +79,34 @@ export async function loginWithPhone(phone: string, code: string): Promise<AuthS
   return issueSession(user);
 }
 
-export async function loginWithEmail(email: string, password: string, code: string): Promise<AuthSession> {
+export async function loginWithEmail(
+  email: string,
+  password: string,
+  code: string
+): Promise<AuthSession> {
   if (!password.trim() || !code.trim()) {
     throw badRequest("Email, пароль и код обязательны");
   }
 
-  const repository = getRepository();
   const normalizedEmail = validateEmail(email);
-  const stored = emailCodeStore.get(normalizedEmail);
-  const demoAllowed = isDemoAuthEnabled() && code === DEMO_EMAIL_CODE;
 
-  if ((!stored || stored.expiresAt < Date.now() || stored.code !== code) && !demoAllowed) {
-    throw unauthorized("Неверный код подтверждения email");
+  const demoAllowed = isDemoAuthEnabled() && code === DEMO_EMAIL_CODE;
+  const codeValid =
+    demoAllowed || (await verifyCode(`email:${normalizedEmail}`, code));
+
+  if (!codeValid) {
+    throw unauthorized("Неверный или просроченный код подтверждения");
   }
 
-  emailCodeStore.delete(normalizedEmail);
+  const repository = getRepository();
   const user = await repository.getUserByEmail(normalizedEmail);
 
   if (!user) {
+    // New user — register automatically
     const created = await repository.createClientUser({
       name: "Новый клиент",
       email: normalizedEmail,
-      passwordHash: hashPassword(password)
+      passwordHash: hashPassword(password),
     });
     return issueSession(created);
   }
@@ -117,6 +121,8 @@ export async function loginWithEmail(email: string, password: string, code: stri
 
   return issueSession(user);
 }
+
+// ─── Demo role switch ─────────────────────────────────────────────────────────
 
 export async function switchDemoRole(role: UserRole): Promise<AuthSession> {
   if (!isDemoAuthEnabled()) {

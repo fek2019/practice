@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
     const session = requireSession(request);
     const user = await getRepository().getUserById(session.userId);
     if (!user) {
-      throw notFound("Пользователь не найден");
+      // Сессия валидна, но пользователь удалён или БД сменилась — разлогиниваем
+      throw unauthorized("Сессия устарела. Войдите снова.");
     }
     return jsonOk(user);
   } catch (error) {
