@@ -10,11 +10,6 @@ import { validateEmail, validatePhone } from "./validation";
 
 export const DEMO_SMS_CODE = "1234";
 export const DEMO_EMAIL_CODE = "2468";
-<<<<<<< HEAD
-=======
-const codeStore = new Map<string, { code: string; expiresAt: number }>();
-const emailCodeStore = new Map<string, { code: string; expiresAt: number }>();
->>>>>>> cfcd886528b7ad889d27770ee190afe8a6d0ee93
 
 const generateCode = () =>
   process.env.NODE_ENV === "production"
@@ -107,7 +102,6 @@ export async function loginWithEmail(
   const user = await repository.getUserByEmail(normalizedEmail);
 
   if (!user) {
-    // New user — register automatically
     const created = await repository.createClientUser({
       name: "Новый клиент",
       email: normalizedEmail,
