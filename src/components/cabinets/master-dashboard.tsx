@@ -6,6 +6,7 @@ import { getProfile, listMasterAppointments, listServices, updateAppointmentStat
 import { getSession, logout } from "@/lib/auth-client";
 import { formatDate, getStatusLabel } from "@/lib/format";
 import { Appointment, AppointmentStatus, AuthSession, Service, User } from "@/types";
+import { LogoutButton } from "../account/logout-button";
 import { StatusBadge } from "../ui/status-badge";
 
 type CalendarMode = "day" | "week" | "month";
@@ -123,10 +124,13 @@ export function MasterDashboard() {
   return (
     <div className="cabinet-shell" data-reveal="up">
       <section className="panel cabinet-profile-card">
-        <div>
-          <span className="small-badge">Профиль мастера</span>
-          <h2>{profile.name}</h2>
-          <p className="hint">{profile.email || profile.phone}</p>
+        <div className="cabinet-profile-summary">
+          <div>
+            <span className="small-badge">Профиль мастера</span>
+            <h2>{profile.name}</h2>
+            <p className="hint">{profile.email || profile.phone}</p>
+          </div>
+          <LogoutButton />
         </div>
         <form className="form-grid cabinet-profile-form" onSubmit={handleProfileSubmit}>
           <div className="field">

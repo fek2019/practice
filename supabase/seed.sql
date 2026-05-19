@@ -44,18 +44,7 @@ on conflict (id) do update set
   password_hash = excluded.password_hash,
   linked_master_id = excluded.linked_master_id;
 
-insert into appointments (id, client_name, client_phone, client_email, service_id, master_id, date, time_slot, status, created_at)
-values
-  ('a-1001', 'Иван Петров', '+7 999 123 45 67', 'ivan.petrov@example.com', 'srv-2', 'm-1', '2026-03-17', '11:00', 'in-progress', '2026-03-10T08:30:00.000Z'),
-  ('a-1002', 'Елена Смирнова', '+7 905 456 19 81', 'elena@example.com', 'srv-4', 'm-2', '2026-03-16', '14:00', 'ready', '2026-03-09T12:00:00.000Z'),
-  ('a-1003', 'Артем Федоров', '+7 921 444 66 77', 'af@example.com', 'srv-7', 'm-3', '2026-03-18', '15:00', 'pending', '2026-03-12T15:42:00.000Z'),
-  ('a-1004', 'Иван Петров', '+7 999 123 45 67', 'ivan.petrov@example.com', 'srv-1', 'm-4', '2026-02-25', '12:00', 'done', '2026-02-20T11:10:00.000Z')
-on conflict (id) do update set
-  client_name = excluded.client_name,
-  client_phone = excluded.client_phone,
-  client_email = excluded.client_email,
-  service_id = excluded.service_id,
-  master_id = excluded.master_id,
-  date = excluded.date,
-  time_slot = excluded.time_slot,
-  status = excluded.status;
+-- Demo appointments are intentionally not seeded.
+-- Orders must be created only through the booking flow and stored in the DB.
+delete from appointments
+where id in ('a-1001', 'a-1002', 'a-1003', 'a-1004');

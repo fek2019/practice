@@ -14,6 +14,7 @@ import {
 import { getSession, logout } from "@/lib/auth-client";
 import { formatDate } from "@/lib/format";
 import { Appointment, AuthSession, Master, Review, Service, User } from "@/types";
+import { LogoutButton } from "../account/logout-button";
 import { StatusBadge } from "../ui/status-badge";
 
 export function ClientDashboard() {
@@ -134,10 +135,13 @@ export function ClientDashboard() {
   return (
     <div className="cabinet-shell" data-reveal="up">
       <section className="panel cabinet-profile-card">
-        <div>
-          <span className="small-badge">Профиль клиента</span>
-          <h2>{profile.name}</h2>
-          <p className="hint">{profile.email || profile.phone}</p>
+        <div className="cabinet-profile-summary">
+          <div>
+            <span className="small-badge">Профиль клиента</span>
+            <h2>{profile.name}</h2>
+            <p className="hint">{profile.email || profile.phone}</p>
+          </div>
+          <LogoutButton />
         </div>
         <form className="form-grid cabinet-profile-form" onSubmit={handleProfileSubmit}>
           <div className="field">

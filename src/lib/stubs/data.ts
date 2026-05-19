@@ -136,56 +136,7 @@ export const mockDb: {
       bio: "Ведущий мастер сети. Ведет сложные и срочные заказы, включая реставрацию корпуса."
     }
   ],
-  appointments: [
-    {
-      id: "a-1001",
-      clientName: "Иван Петров",
-      clientPhone: "+7 999 123 45 67",
-      clientEmail: "ivan.petrov@example.com",
-      serviceId: "srv-2",
-      masterId: "m-1",
-      date: "2026-03-17",
-      timeSlot: "11:00",
-      status: "in-progress",
-      createdAt: "2026-03-10T08:30:00.000Z"
-    },
-    {
-      id: "a-1002",
-      clientName: "Елена Смирнова",
-      clientPhone: "+7 905 456 19 81",
-      clientEmail: "elena@example.com",
-      serviceId: "srv-4",
-      masterId: "m-2",
-      date: "2026-03-16",
-      timeSlot: "14:00",
-      status: "ready",
-      createdAt: "2026-03-09T12:00:00.000Z"
-    },
-    {
-      id: "a-1003",
-      clientName: "Артем Федоров",
-      clientPhone: "+7 921 444 66 77",
-      clientEmail: "af@example.com",
-      serviceId: "srv-7",
-      masterId: "m-3",
-      date: "2026-03-18",
-      timeSlot: "15:00",
-      status: "pending",
-      createdAt: "2026-03-12T15:42:00.000Z"
-    },
-    {
-      id: "a-1004",
-      clientName: "Иван Петров",
-      clientPhone: "+7 999 123 45 67",
-      clientEmail: "ivan.petrov@example.com",
-      serviceId: "srv-1",
-      masterId: "m-4",
-      date: "2026-02-25",
-      timeSlot: "12:00",
-      status: "done",
-      createdAt: "2026-02-20T11:10:00.000Z"
-    }
-  ],
+  appointments: [],
   users: [
     {
       id: "u-1",
@@ -194,7 +145,7 @@ export const mockDb: {
       email: "ivan.petrov@example.com",
       role: "client",
       password: "client123",
-      appointments: ["a-1001", "a-1004"]
+      appointments: []
     },
     {
       id: "u-2",
@@ -203,7 +154,7 @@ export const mockDb: {
       email: "romanov.master@example.com",
       role: "master",
       password: "master123",
-      appointments: ["a-1001"],
+      appointments: [],
       linkedMasterId: "m-1"
     },
     {

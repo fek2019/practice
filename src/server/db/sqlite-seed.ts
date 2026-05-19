@@ -80,37 +80,10 @@ const seedUsers = (database: BetterSqliteDatabase) => {
   tx();
 };
 
-const seedAppointments = (database: BetterSqliteDatabase) => {
-  if (!isEmpty(database, "appointments")) return;
-
-  const insert = database.prepare(`
-    INSERT INTO appointments (id, client_name, client_phone, client_email, service_id, master_id, date, time_slot, status, created_at)
-    VALUES (@id, @clientName, @clientPhone, @clientEmail, @serviceId, @masterId, @date, @timeSlot, @status, @createdAt)
-  `);
-
-  const tx = database.transaction(() => {
-    for (const appointment of mockDb.appointments) {
-      insert.run({
-        id: appointment.id,
-        clientName: appointment.clientName,
-        clientPhone: appointment.clientPhone,
-        clientEmail: appointment.clientEmail,
-        serviceId: appointment.serviceId,
-        masterId: appointment.masterId,
-        date: appointment.date,
-        timeSlot: appointment.timeSlot,
-        status: appointment.status,
-        createdAt: appointment.createdAt
-      });
-    }
-  });
-  tx();
-};
-
 export const seedDatabase = (database: BetterSqliteDatabase) => {
-  // Порядок важен: masters → services → users → appointments (FK).
+  // Порядок важен: masters → services → users (FK для связанных мастеров).
+  // Заявки не сидим: все заказы должны появляться только из реальных записей в БД.
   seedServices(database);
   seedMasters(database);
   seedUsers(database);
-  seedAppointments(database);
 };
