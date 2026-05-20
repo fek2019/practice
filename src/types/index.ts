@@ -2,6 +2,12 @@ export type WatchCategory = "mechanical" | "quartz" | "smart";
 export type RepairType = "glass" | "cleaning" | "restoration" | "battery" | "waterproofing";
 export type UserRole = "client" | "master" | "admin";
 export type AppointmentStatus = "pending" | "in-progress" | "ready" | "done" | "cancelled";
+export type NotificationKind =
+  | "welcome"
+  | "appointment-confirmed"
+  | "appointment-reminder-day"
+  | "appointment-reminder-hours"
+  | "appointment-status";
 
 export interface Service {
   id: string;
@@ -68,6 +74,18 @@ export interface QuickRequest {
   createdAt: string;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  appointmentId?: string;
+  kind: NotificationKind;
+  title: string;
+  message: string;
+  readAt: string | null;
+  scheduledFor: string;
+  createdAt: string;
+}
+
 export interface ServiceFilters {
   category?: WatchCategory | "all";
   repairType?: RepairType | "all";
@@ -79,6 +97,7 @@ export interface CreateAppointmentInput {
   clientName: string;
   clientPhone: string;
   clientEmail: string;
+  clientUserId?: string;
   serviceId: string;
   masterId?: string | null;
   date: string;
@@ -114,4 +133,3 @@ export interface AdminStats {
   popularServices: PopularServiceStat[];
   masterLoad: MasterLoadStat[];
 }
-

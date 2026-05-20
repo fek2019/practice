@@ -4,6 +4,7 @@ import {
   AppointmentStatus,
   CreateAppointmentInput,
   Master,
+  Notification,
   QuickRequest,
   Review,
   Service,
@@ -12,10 +13,19 @@ import {
   UserRole
 } from "@/types";
 import { mockDb } from "@/lib/stubs/data";
+import { filterFutureSlots, isAppointmentInFuture, isFutureInstant } from "@/lib/time";
 import { conflict, notFound } from "../errors";
 import { sendClientNotification, sendMasterNotification } from "../notifications";
+import {
+  buildAppointmentConfirmedNotification,
+  buildAppointmentDayReminderNotification,
+  buildAppointmentHoursReminderNotification,
+  getReminderSchedule,
+  WORKSHOP_ADDRESS
+} from "../notification-templates";
+import { sendDueTelegramNotifications } from "../../../tgbot/notifier";
 import { clone, generateId, getWorkshopSlots } from "./workshop-rules";
-import { CreateQuickRequestInput, WorkshopRepository } from "./types";
+import { CreateNotificationInput, CreateQuickRequestInput, WorkshopRepository } from "./types";
 
 const findService = (serviceId: string) => mockDb.services.find((service) => service.id === serviceId);
 const findMaster = (masterId: string) => mockDb.masters.find((master) => master.id === masterId);
@@ -25,33 +35,16 @@ const getBookedCount = (date: string, timeSlot: string) =>
 
 const getServicePrice = (serviceId: string) => findService(serviceId)?.price ?? 0;
 
+const dispatchTelegramNotifications = () => {
+  sendDueTelegramNotifications().catch((error) => {
+    console.error("[telegram-notifications]", error);
+  });
+};
+
 const isMasterBusy = (masterId: string, date: string, timeSlot: string) =>
   mockDb.appointments.some(
     (item) => item.masterId === masterId && item.date === date && item.timeSlot === timeSlot
   );
-
-const attachAppointmentToClient = (appointment: Appointment) => {
-  const existingUser = mockDb.users.find(
-    (user) => user.role === "client" && (user.phone === appointment.clientPhone || user.email === appointment.clientEmail)
-  );
-
-  if (existingUser) {
-    if (!existingUser.appointments.includes(appointment.id)) {
-      existingUser.appointments.push(appointment.id);
-    }
-    return;
-  }
-
-  const newClient: User = {
-    id: generateId("u"),
-    name: appointment.clientName,
-    phone: appointment.clientPhone,
-    email: appointment.clientEmail,
-    role: "client",
-    appointments: [appointment.id]
-  };
-  mockDb.users.push(newClient);
-};
 
 const chooseBestMaster = async (date: string, timeSlot: string) => {
   const availableMasters = mockDb.masters.filter((master) => master.available);
@@ -162,7 +155,7 @@ export const mockRepository: WorkshopRepository = {
   },
 
   async getAvailableSlots(date: string, masterId?: string | null) {
-    const slots = getWorkshopSlots();
+    const slots = filterFutureSlots(date, getWorkshopSlots());
     const availableMasters = mockDb.masters.filter((master) => master.available);
 
     if (availableMasters.length === 0) {
@@ -177,6 +170,10 @@ export const mockRepository: WorkshopRepository = {
   },
 
   async createAppointment(payload: CreateAppointmentInput) {
+    if (!isAppointmentInFuture(payload.date, payload.timeSlot)) {
+      throw conflict("Нельзя записаться на прошедшее время");
+    }
+
     const service = findService(payload.serviceId);
     if (!service) {
       throw notFound("Услуга не найдена");
@@ -210,13 +207,55 @@ export const mockRepository: WorkshopRepository = {
     };
 
     mockDb.appointments.unshift(appointment);
-    attachAppointmentToClient(appointment);
+    const clientUser =
+      (payload.clientUserId ? mockDb.users.find((user) => user.id === payload.clientUserId) : null) ??
+      mockDb.users.find(
+        (user) => user.role === "client" && (user.email === appointment.clientEmail || user.phone === appointment.clientPhone)
+      );
 
     await sendClientNotification(
       appointment.clientPhone,
       `Заявка ${appointment.id} принята. Дата: ${appointment.date}, время: ${appointment.timeSlot}.`
     );
     await sendMasterNotification(masterId, `Новая заявка ${appointment.id} на ${appointment.date} ${appointment.timeSlot}.`);
+
+    if (clientUser) {
+      const details = {
+        appointment,
+        serviceName: service.name,
+        masterName: findMaster(masterId)?.name ?? "Мастер WatchLab",
+        address: WORKSHOP_ADDRESS
+      };
+      const confirmed = buildAppointmentConfirmedNotification(details);
+      const dayReminder = buildAppointmentDayReminderNotification(details);
+      const hoursReminder = buildAppointmentHoursReminderNotification(details);
+      const schedule = getReminderSchedule(appointment);
+
+      await this.createNotification({
+        userId: clientUser.id,
+        appointmentId: appointment.id,
+        kind: "appointment-confirmed",
+        ...confirmed
+      });
+      if (isFutureInstant(schedule.dayBefore)) {
+        await this.createNotification({
+          userId: clientUser.id,
+          appointmentId: appointment.id,
+          kind: "appointment-reminder-day",
+          scheduledFor: schedule.dayBefore,
+          ...dayReminder
+        });
+      }
+      if (isFutureInstant(schedule.twoHoursBefore)) {
+        await this.createNotification({
+          userId: clientUser.id,
+          appointmentId: appointment.id,
+          kind: "appointment-reminder-hours",
+          scheduledFor: schedule.twoHoursBefore,
+          ...hoursReminder
+        });
+      }
+    }
 
     return clone(appointment);
   },
@@ -352,6 +391,13 @@ export const mockRepository: WorkshopRepository = {
   },
 
   async createClientUser(input: { name: string; phone?: string; email?: string; passwordHash?: string }) {
+    const existing = mockDb.users.find(
+      (user) => user.role === "client" && ((input.phone && user.phone === input.phone) || (input.email && user.email === input.email))
+    );
+    if (existing) {
+      return clone(existing);
+    }
+
     const user: User = {
       id: generateId("u"),
       name: input.name,
@@ -363,6 +409,43 @@ export const mockRepository: WorkshopRepository = {
     };
     mockDb.users.push(user);
     return clone(user);
+  },
+
+  async createNotification(input: CreateNotificationInput) {
+    const notification: Notification = {
+      id: generateId("n"),
+      userId: input.userId,
+      appointmentId: input.appointmentId,
+      kind: input.kind,
+      title: input.title,
+      message: input.message,
+      readAt: null,
+      scheduledFor: input.scheduledFor ?? new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    };
+    mockDb.notifications.unshift(notification);
+    dispatchTelegramNotifications();
+    return clone(notification);
+  },
+
+  async listUserNotifications(userId: string) {
+    const now = new Date().toISOString();
+    dispatchTelegramNotifications();
+    return clone(
+      mockDb.notifications
+        .filter((notification) => notification.userId === userId && notification.scheduledFor <= now)
+        .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor) || b.createdAt.localeCompare(a.createdAt))
+    );
+  },
+
+  async markNotificationsRead(userId: string, notificationIds?: string[]) {
+    const idSet = notificationIds && notificationIds.length > 0 ? new Set(notificationIds) : null;
+    const readAt = new Date().toISOString();
+    for (const notification of mockDb.notifications) {
+      if (notification.userId === userId && !notification.readAt && (!idSet || idSet.has(notification.id))) {
+        notification.readAt = readAt;
+      }
+    }
   },
 
   async listReviewsByClient(userId: string) {

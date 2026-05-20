@@ -1,9 +1,13 @@
 .next
 node_modules
+.vs
 dist
 coverage
 .env
 .env.local
+tgbot/.env
+dev.log
+dev-temp.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

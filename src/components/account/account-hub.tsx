@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   getSession,
   loginWithEmail,
-  loginWithPhone,
   requestEmailCode,
-  requestPhoneCode,
+  registerWithEmail,
 } from "@/lib/auth-client";
 
-type AuthMode = "email" | "phone";
+type AuthIntent = "login" | "register";
 
 const roleRoute = {
   client: "/account/client",
@@ -20,21 +19,11 @@ const roleRoute = {
 
 // ─── Client-side format validators ───────────────────────────────────────────
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-const PHONE_RE = /^\+?[1-9]\d{6,14}$/;
-const normalizePhone = (p: string) => p.replace(/[\s\-()\u00A0]/g, "");
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 function validateEmailField(value: string): string | null {
   if (!value.trim()) return "Введите email";
-  if (!EMAIL_RE.test(value.trim())) return "Некорректный формат email";
-  return null;
-}
-
-function validatePhoneField(value: string): string | null {
-  const v = normalizePhone(value.trim());
-  if (!v) return "Введите номер телефона";
-  if (!PHONE_RE.test(v))
-    return "Формат: +79991234567 (7–15 цифр, можно с +)";
+  if (!EMAIL_RE.test(value.trim())) return "Email должен быть в формате ***@***.***";
   return null;
 }
 
@@ -67,18 +56,13 @@ function useCooldown(seconds = 60) {
 export function AccountHub() {
   const router = useRouter();
 
-  const [mode, setMode] = useState<AuthMode>("email");
+  const [intent, setIntent] = useState<AuthIntent>("login");
 
   // Email form state
-  const [email, setEmail] = useState("ivan.petrov@example.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("client123");
   const [emailCode, setEmailCode] = useState("");
   const [emailSent, setEmailSent] = useState(false);
-
-  // Phone form state
-  const [phone, setPhone] = useState("+7 999 123 45 67");
-  const [phoneCode, setPhoneCode] = useState("");
-  const [phoneSent, setPhoneSent] = useState(false);
 
   // Shared UI state
   const [message, setMessage] = useState("");
@@ -87,11 +71,9 @@ export function AccountHub() {
 
   // Field-level validation errors
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Cooldown timers so users can't spam "Получить код"
   const emailCooldown = useCooldown(60);
-  const phoneCooldown = useCooldown(60);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -103,7 +85,7 @@ export function AccountHub() {
 
   // ─── Generic async runner ─────────────────────────────────────────────────
 
-  const run = async <T>(
+  const run = async <T,>(
     action: () => Promise<T>,
     onSuccess: (result: T) => void
   ) => {
@@ -151,57 +133,19 @@ export function AccountHub() {
     setEmailError(null);
 
     run(
-      () => loginWithEmail(email, password, emailCode),
+      () => (intent === "login" ? loginWithEmail(email, password, emailCode) : registerWithEmail(email, password, emailCode)),
       () => {
         const session = getSession();
         if (session) router.push(roleRoute[session.role]);
-        else setMessage("Вход выполнен.");
-      }
-    );
-  };
-
-  // ─── Phone handlers ───────────────────────────────────────────────────────
-
-  const handleRequestPhoneCode = () => {
-    const err = validatePhoneField(phone);
-    if (err) { setPhoneError(err); return; }
-    setPhoneError(null);
-
-    run(
-      () => requestPhoneCode(phone),
-      (result) => {
-        setPhoneSent(true);
-        phoneCooldown.start();
-        if (result.debugCode) {
-          setPhoneCode(result.debugCode);
-          setMessage(`SMS отправлено (dev-код: ${result.debugCode}).`);
-        } else {
-          setMessage("SMS отправлено.");
-        }
-      }
-    );
-  };
-
-  const handlePhoneLogin = (event: FormEvent) => {
-    event.preventDefault();
-    const err = validatePhoneField(phone);
-    if (err) { setPhoneError(err); return; }
-    setPhoneError(null);
-
-    run(
-      () => loginWithPhone(phone, phoneCode),
-      () => {
-        const session = getSession();
-        if (session) router.push(roleRoute[session.role]);
-        else setMessage("Вход выполнен.");
+        else setMessage(intent === "login" ? "Вход выполнен." : "Регистрация выполнена.");
       }
     );
   };
 
   // ─── Switch mode ──────────────────────────────────────────────────────────
 
-  const switchMode = (next: AuthMode) => {
-    setMode(next);
+  const switchIntent = (next: AuthIntent) => {
+    setIntent(next);
     setError("");
     setMessage("");
   };
@@ -214,8 +158,8 @@ export function AccountHub() {
         <span className="account-pill">Личный кабинет</span>
         <h1>Войдите, чтобы открыть рабочее пространство</h1>
         <p>
-          После подтверждения почты или телефона система сразу переведёт вас в
-          кабинет с нужной ролью.
+          Войдите по почте или создайте аккаунт. После подтверждения система
+          сразу переведёт вас в кабинет.
         </p>
       </section>
 
@@ -227,31 +171,29 @@ export function AccountHub() {
           aria-label="Вход в личный кабинет"
         >
           <div className="account-scene-head">
-            <h2>Вход</h2>
-            <p>Подтвердите email или войдите по номеру телефона.</p>
+            <h2>{intent === "login" ? "Вход" : "Регистрация"}</h2>
+            <p>Подтвердите email кодом из письма.</p>
           </div>
 
           {/* Tab switcher */}
           <div className="auth-method-switch">
             <button
               type="button"
-              className={`auth-method-btn ${mode === "email" ? "active" : ""}`}
-              onClick={() => switchMode("email")}
+              className={`auth-method-btn ${intent === "login" ? "active" : ""}`}
+              onClick={() => switchIntent("login")}
             >
-              Email
+              Вход
             </button>
             <button
               type="button"
-              className={`auth-method-btn ${mode === "phone" ? "active" : ""}`}
-              onClick={() => switchMode("phone")}
+              className={`auth-method-btn ${intent === "register" ? "active" : ""}`}
+              onClick={() => switchIntent("register")}
             >
-              Телефон
+              Регистрация
             </button>
           </div>
 
-          {/* ── Email form ── */}
-          {mode === "email" ? (
-            <form className="account-panel" onSubmit={handleEmailLogin}>
+          <form className="account-panel" onSubmit={handleEmailLogin}>
               <div className="field">
                 <label htmlFor="account-email">Email</label>
                 <input
@@ -318,73 +260,10 @@ export function AccountHub() {
                   type="submit"
                   disabled={loading || !emailSent}
                 >
-                  {loading ? "Проверяем..." : "Войти"}
+                  {loading ? "Проверяем..." : intent === "login" ? "Войти" : "Зарегистрироваться"}
                 </button>
               </div>
             </form>
-          ) : (
-            /* ── Phone form ── */
-            <form className="account-panel" onSubmit={handlePhoneLogin}>
-              <div className="field">
-                <label htmlFor="account-phone">Телефон</label>
-                <input
-                  id="account-phone"
-                  type="tel"
-                  value={phone}
-                  autoComplete="tel"
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    setPhoneError(validatePhoneField(e.target.value));
-                    setPhoneSent(false);
-                  }}
-                  aria-invalid={!!phoneError}
-                  aria-describedby={phoneError ? "account-phone-error" : undefined}
-                />
-                {phoneError ? (
-                  <span id="account-phone-error" className="field-error">
-                    {phoneError}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="field">
-                <label htmlFor="account-phone-code">
-                  Код из SMS
-                  {phoneSent ? (
-                    <span className="field-hint"> — проверьте телефон</span>
-                  ) : null}
-                </label>
-                <input
-                  id="account-phone-code"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={phoneCode}
-                  placeholder="····"
-                  onChange={(e) => setPhoneCode(e.target.value)}
-                />
-              </div>
-
-              <div className="actions-row">
-                <button
-                  type="button"
-                  className="outline-button dark"
-                  disabled={loading || phoneCooldown.remaining > 0}
-                  onClick={handleRequestPhoneCode}
-                >
-                  {phoneCooldown.remaining > 0
-                    ? `Повторить через ${phoneCooldown.remaining} с`
-                    : "Получить код"}
-                </button>
-                <button
-                  className="cta-button"
-                  type="submit"
-                  disabled={loading || !phoneSent}
-                >
-                  {loading ? "Проверяем..." : "Войти"}
-                </button>
-              </div>
-            </form>
-          )}
 
           {message ? <p className="notice success">{message}</p> : null}
           {error ? <p className="notice error">{error}</p> : null}

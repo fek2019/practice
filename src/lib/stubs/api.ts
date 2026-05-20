@@ -9,6 +9,7 @@ import {
   ServiceFilters,
   User
 } from "@/types";
+import { filterFutureSlots, isAppointmentInFuture } from "@/lib/time";
 import { mockDb } from "./data";
 
 const WORK_START_HOUR = 10;
@@ -142,7 +143,7 @@ export async function createQuickRequest(payload: {
 
 export async function getAvailableSlots(date: string, masterId?: string | null): Promise<string[]> {
   await wait();
-  const slots = getWorkshopSlots();
+  const slots = filterFutureSlots(date, getWorkshopSlots());
   const availableMasters = mockDb.masters.filter((master) => master.available);
 
   if (availableMasters.length === 0) {
@@ -178,6 +179,10 @@ const chooseBestMaster = async (date: string, timeSlot: string) => {
 
 export async function createAppointment(payload: CreateAppointmentInput): Promise<Appointment> {
   await wait();
+
+  if (!isAppointmentInFuture(payload.date, payload.timeSlot)) {
+    throw new Error("Нельзя записаться на прошедшее время");
+  }
 
   const service = findService(payload.serviceId);
   if (!service) {
@@ -365,4 +370,3 @@ export async function adminDeleteMaster(masterId: string): Promise<void> {
   }
   mockDb.masters.splice(index, 1);
 }
-

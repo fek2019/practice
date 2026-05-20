@@ -34,9 +34,8 @@ export const formatDate = (value: string) =>
     year: "numeric",
     month: "long",
     day: "numeric"
-  }).format(new Date(value));
+  }).format(new Date(`${value}T00:00:00+03:00`));
 
 export const getCategoryLabel = (category: WatchCategory) => categoryLabels[category];
 export const getRepairTypeLabel = (repairType: RepairType) => repairTypeLabels[repairType];
 export const getStatusLabel = (status: AppointmentStatus) => statusLabels[status];
-

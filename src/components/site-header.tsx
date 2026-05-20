@@ -6,13 +6,21 @@ import { FormEvent, useEffect, useState } from "react";
 import {
   getSession,
   loginWithEmail,
-  loginWithPhone,
+  registerWithEmail,
   requestEmailCode,
-  requestPhoneCode
 } from "@/lib/auth-client";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { cn } from "@/lib/utils";
 
-type AuthMode = "email" | "phone";
+type AuthIntent = "login" | "register";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
+const validateEmailField = (value: string) => {
+  if (!value.trim()) return "Введите email";
+  if (!EMAIL_RE.test(value.trim())) return "Email должен быть в формате ***@***.***";
+  return "";
+};
 
 const roleRoute = {
   client: "/account/client",
@@ -31,15 +39,14 @@ const navItems = [
 
 function HeaderAccountDropdown({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>("email");
-  const [email, setEmail] = useState("ivan.petrov@example.com");
+  const [intent, setIntent] = useState<AuthIntent>("login");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("client123");
-  const [emailCode, setEmailCode] = useState("2468");
-  const [phone, setPhone] = useState("+7 999 123 45 67");
-  const [phoneCode, setPhoneCode] = useState("1234");
+  const [emailCode, setEmailCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   const run = async (
     action: () => Promise<{ debugCode?: string; success?: boolean } | { role: keyof typeof roleRoute }>,
@@ -51,11 +58,7 @@ function HeaderAccountDropdown({ onClose }: { onClose: () => void }) {
     try {
       const result = await action();
       if ("debugCode" in result && result.debugCode) {
-        if (mode === "email") {
-          setEmailCode(result.debugCode);
-        } else {
-          setPhoneCode(result.debugCode);
-        }
+        setEmailCode(result.debugCode);
         setMessage(`${successText} Код заглушки: ${result.debugCode}.`);
         return;
       }
@@ -75,12 +78,16 @@ function HeaderAccountDropdown({ onClose }: { onClose: () => void }) {
 
   const handleEmailLogin = (event: FormEvent) => {
     event.preventDefault();
-    run(() => loginWithEmail(email, password, emailCode), "Вход выполнен.");
-  };
-
-  const handlePhoneLogin = (event: FormEvent) => {
-    event.preventDefault();
-    run(() => loginWithPhone(phone, phoneCode), "Вход выполнен.");
+    const validationError = validateEmailField(email);
+    if (validationError) {
+      setEmailError(validationError);
+      return;
+    }
+    setEmailError("");
+    run(
+      () => (intent === "login" ? loginWithEmail(email, password, emailCode) : registerWithEmail(email, password, emailCode)),
+      intent === "login" ? "Вход выполнен." : "Регистрация выполнена."
+    );
   };
 
   return (
@@ -88,7 +95,7 @@ function HeaderAccountDropdown({ onClose }: { onClose: () => void }) {
       <div className="header-account-head">
         <div>
           <span className="small-badge">Личный кабинет</span>
-          <h3>Вход</h3>
+          <h3>{intent === "login" ? "Вход" : "Регистрация"}</h3>
         </div>
         <button type="button" className="account-dropdown-close" onClick={onClose} aria-label="Закрыть">
           x
@@ -98,91 +105,83 @@ function HeaderAccountDropdown({ onClose }: { onClose: () => void }) {
       <div className="auth-method-switch">
         <button
           type="button"
-          className={`auth-method-btn ${mode === "email" ? "active" : ""}`}
-          onClick={() => setMode("email")}
+          className={`auth-method-btn ${intent === "login" ? "active" : ""}`}
+          onClick={() => {
+            setIntent("login");
+            setError("");
+            setMessage("");
+          }}
         >
-          Email
+          Вход
         </button>
         <button
           type="button"
-          className={`auth-method-btn ${mode === "phone" ? "active" : ""}`}
-          onClick={() => setMode("phone")}
+          className={`auth-method-btn ${intent === "register" ? "active" : ""}`}
+          onClick={() => {
+            setIntent("register");
+            setError("");
+            setMessage("");
+          }}
         >
-          Телефон
+          Регистрация
         </button>
       </div>
 
-      {mode === "email" ? (
-        <form className="account-panel" onSubmit={handleEmailLogin}>
-          <div className="field">
-            <label htmlFor="header-account-email">Email</label>
-            <input
-              id="header-account-email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="header-account-password">Пароль</label>
-            <input
-              id="header-account-password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="header-account-email-code">Код из письма</label>
-            <input
-              id="header-account-email-code"
-              value={emailCode}
-              onChange={(event) => setEmailCode(event.target.value)}
-            />
-          </div>
-          <div className="actions-row">
-            <button
-              type="button"
-              className="outline-button dark"
-              disabled={loading}
-              onClick={() => run(() => requestEmailCode(email), "Письмо отправлено.")}
-            >
-              Получить код
-            </button>
-            <button type="submit" className="cta-button" disabled={loading}>
-              {loading ? "Проверяем..." : "Войти"}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <form className="account-panel" onSubmit={handlePhoneLogin}>
-          <div className="field">
-            <label htmlFor="header-account-phone">Телефон</label>
-            <input id="header-account-phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="header-account-phone-code">Код из SMS</label>
-            <input
-              id="header-account-phone-code"
-              value={phoneCode}
-              onChange={(event) => setPhoneCode(event.target.value)}
-            />
-          </div>
-          <div className="actions-row">
-            <button
-              type="button"
-              className="outline-button dark"
-              disabled={loading}
-              onClick={() => run(() => requestPhoneCode(phone), "SMS отправлено.")}
-            >
-              Получить код
-            </button>
-            <button type="submit" className="cta-button" disabled={loading}>
-              {loading ? "Проверяем..." : "Войти"}
-            </button>
-          </div>
-        </form>
-      )}
+      <form className="account-panel" onSubmit={handleEmailLogin}>
+        <div className="field">
+          <label htmlFor="header-account-email">Email</label>
+          <input
+            id="header-account-email"
+            type="email"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setEmailError(validateEmailField(event.target.value));
+            }}
+            aria-invalid={Boolean(emailError)}
+            aria-describedby={emailError ? "header-account-email-error" : undefined}
+          />
+          {emailError ? <span id="header-account-email-error" className="field-error">{emailError}</span> : null}
+        </div>
+        <div className="field">
+          <label htmlFor="header-account-password">Пароль</label>
+          <input
+            id="header-account-password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="header-account-email-code">Код из письма</label>
+          <input
+            id="header-account-email-code"
+            value={emailCode}
+            onChange={(event) => setEmailCode(event.target.value)}
+          />
+        </div>
+        <div className="actions-row">
+          <button
+            type="button"
+            className="outline-button dark"
+            disabled={loading}
+            onClick={() => {
+              const validationError = validateEmailField(email);
+              if (validationError) {
+                setEmailError(validationError);
+                return;
+              }
+              setEmailError("");
+              run(() => requestEmailCode(email), "Письмо отправлено.");
+            }}
+          >
+            Получить код
+          </button>
+          <button type="submit" className="cta-button" disabled={loading}>
+            {loading ? "Проверяем..." : intent === "login" ? "Войти" : "Зарегистрироваться"}
+          </button>
+        </div>
+      </form>
 
       {message ? <p className="notice success">{message}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
@@ -281,6 +280,7 @@ export function SiteHeader() {
           >
             Записаться
           </Link>
+          <NotificationBell />
         </nav>
       </div>
     </header>

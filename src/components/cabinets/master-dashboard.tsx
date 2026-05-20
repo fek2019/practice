@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getProfile, listMasterAppointments, listServices, updateAppointmentStatus, updateProfile } from "@/lib/api-client";
 import { getSession, logout } from "@/lib/auth-client";
 import { formatDate, getStatusLabel } from "@/lib/format";
+import { isAppointmentPast } from "@/lib/time";
 import { Appointment, AppointmentStatus, AuthSession, Service, User } from "@/types";
 import { LogoutButton } from "../account/logout-button";
 import { StatusBadge } from "../ui/status-badge";
@@ -76,6 +77,7 @@ export function MasterDashboard() {
   const filteredForCalendar = useMemo(() => {
     return appointments.filter((appointment) => {
       const diff = getDateDiffDays(appointment.date);
+      if (isAppointmentPast(appointment)) return false;
       if (mode === "day") return diff === 0;
       if (mode === "week") return diff >= 0 && diff <= 7;
       return diff >= 0 && diff <= 31;
@@ -83,8 +85,12 @@ export function MasterDashboard() {
   }, [appointments, mode]);
 
   const serviceMap = useMemo(() => new Map(services.map((service) => [service.id, service])), [services]);
-  const currentOrders = appointments.filter((appointment) => !["done", "cancelled"].includes(appointment.status));
-  const history = appointments.filter((appointment) => ["done", "cancelled"].includes(appointment.status));
+  const currentOrders = appointments.filter(
+    (appointment) => !["done", "cancelled"].includes(appointment.status) && !isAppointmentPast(appointment)
+  );
+  const history = appointments.filter(
+    (appointment) => ["done", "cancelled"].includes(appointment.status) || isAppointmentPast(appointment)
+  );
 
   const handleStatusChange = async (appointmentId: string, status: AppointmentStatus) => {
     if (!session?.linkedMasterId) return;

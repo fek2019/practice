@@ -13,6 +13,7 @@ import {
 } from "@/lib/api-client";
 import { getSession, logout } from "@/lib/auth-client";
 import { formatDate } from "@/lib/format";
+import { isAppointmentPast } from "@/lib/time";
 import { Appointment, AuthSession, Master, Review, Service, User } from "@/types";
 import { LogoutButton } from "../account/logout-button";
 import { StatusBadge } from "../ui/status-badge";
@@ -83,8 +84,12 @@ export function ClientDashboard() {
   const serviceMap = useMemo(() => new Map(services.map((item) => [item.id, item])), [services]);
   const masterMap = useMemo(() => new Map(masters.map((item) => [item.id, item])), [masters]);
   const reviewedAppointmentIds = useMemo(() => new Set(reviews.map((review) => review.appointmentId)), [reviews]);
-  const activeOrders = appointments.filter((appointment) => !["done", "cancelled"].includes(appointment.status));
-  const history = appointments.filter((appointment) => ["done", "cancelled"].includes(appointment.status));
+  const activeOrders = appointments.filter(
+    (appointment) => !["done", "cancelled"].includes(appointment.status) && !isAppointmentPast(appointment)
+  );
+  const history = appointments.filter(
+    (appointment) => ["done", "cancelled"].includes(appointment.status) || isAppointmentPast(appointment)
+  );
 
   const handleProfileSubmit = async (event: FormEvent) => {
     event.preventDefault();

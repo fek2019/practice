@@ -1,4 +1,4 @@
-import { Appointment, Master, QuickRequest, Review, Service, User } from "@/types";
+import { Appointment, Master, Notification, QuickRequest, Review, Service, User } from "@/types";
 
 export const mockDb: {
   services: Service[];
@@ -7,6 +7,7 @@ export const mockDb: {
   users: User[];
   quickRequests: QuickRequest[];
   reviews: Review[];
+  notifications: Notification[];
 } = {
   services: [
     {
@@ -139,35 +140,47 @@ export const mockDb: {
   appointments: [],
   users: [
     {
-      id: "u-1",
-      name: "Иван Петров",
-      phone: "+7 999 123 45 67",
-      email: "ivan.petrov@example.com",
-      role: "client",
-      password: "client123",
-      appointments: []
-    },
-    {
-      id: "u-2",
+      id: "u-master-romanov",
       name: "Александр Романов",
       phone: "+7 900 111 22 33",
-      email: "romanov.master@example.com",
+      email: "romanov.master@watchlab.local",
       role: "master",
-      password: "master123",
+      password: "RomanovMaster123!",
       appointments: [],
       linkedMasterId: "m-1"
     },
     {
-      id: "u-3",
-      name: "Администратор",
-      phone: "+7 900 000 00 01",
-      email: "admin@watchlab.local",
-      role: "admin",
-      password: "admin123",
-      appointments: []
+      id: "u-master-goncharova",
+      name: "Мария Гончарова",
+      phone: "+7 900 222 33 44",
+      email: "goncharova.master@watchlab.local",
+      role: "master",
+      password: "GoncharovaMaster123!",
+      appointments: [],
+      linkedMasterId: "m-2"
+    },
+    {
+      id: "u-master-vetrov",
+      name: "Игорь Ветров",
+      phone: "+7 900 333 44 55",
+      email: "vetrov.master@watchlab.local",
+      role: "master",
+      password: "VetrovMaster123!",
+      appointments: [],
+      linkedMasterId: "m-3"
+    },
+    {
+      id: "u-master-kondratev",
+      name: "Дмитрий Кондратьев",
+      phone: "+7 900 444 55 66",
+      email: "kondratev.master@watchlab.local",
+      role: "master",
+      password: "KondratevMaster123!",
+      appointments: [],
+      linkedMasterId: "m-4"
     }
   ],
   quickRequests: [],
-  reviews: []
+  reviews: [],
+  notifications: []
 };
-

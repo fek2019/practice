@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { notFound } from "@/server/errors";
+import { unauthorized } from "@/server/errors";
 import { handleRouteError, jsonOk } from "@/server/http";
 import { getRepository } from "@/server/repositories";
 import { requireSession } from "@/server/security/session";

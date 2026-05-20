@@ -4,6 +4,7 @@ import {
   AppointmentStatus,
   CreateAppointmentInput,
   Master,
+  Notification,
   QuickRequest,
   Review,
   Service,
@@ -96,6 +97,17 @@ export function createAppointment(payload: CreateAppointmentInput) {
     method: "POST",
     body: jsonBody(payload)
   });
+}
+
+export function listNotifications() {
+  return apiRequest<Notification[]>("/api/notifications");
+}
+
+export function markNotificationsRead(ids?: string[]) {
+  return apiRequest<{ success: boolean }>("/api/notifications", {
+    method: "PATCH",
+    body: jsonBody({ ids })
+  }).then(() => undefined);
 }
 
 export function listClientAppointments() {

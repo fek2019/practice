@@ -4,6 +4,8 @@ import {
   AppointmentStatus,
   CreateAppointmentInput,
   Master,
+  Notification,
+  NotificationKind,
   QuickRequest,
   Review,
   Service,
@@ -16,6 +18,15 @@ export interface CreateQuickRequestInput {
   clientName: string;
   clientPhone: string;
   serviceName: string;
+}
+
+export interface CreateNotificationInput {
+  userId: string;
+  appointmentId?: string;
+  kind: NotificationKind;
+  title: string;
+  message: string;
+  scheduledFor?: string;
 }
 
 export interface WorkshopRepository {
@@ -51,6 +62,10 @@ export interface WorkshopRepository {
   updateUser(userId: string, patch: Partial<Pick<User, "name" | "phone" | "email" | "role" | "linkedMasterId" | "isBanned">>): Promise<User>;
   deleteUser(userId: string): Promise<void>;
   createClientUser(input: { name: string; phone?: string; email?: string; passwordHash?: string }): Promise<User>;
+
+  createNotification(input: CreateNotificationInput): Promise<Notification>;
+  listUserNotifications(userId: string): Promise<Notification[]>;
+  markNotificationsRead(userId: string, notificationIds?: string[]): Promise<void>;
 
   listReviewsByClient(userId: string): Promise<Review[]>;
   createReview(input: Omit<Review, "id" | "createdAt">): Promise<Review>;

@@ -35,6 +35,19 @@ exception
   when duplicate_object then null;
 end $$;
 
+do $$
+begin
+  create type notification_kind as enum (
+    'welcome',
+    'appointment-confirmed',
+    'appointment-reminder-day',
+    'appointment-reminder-hours',
+    'appointment-status'
+  );
+exception
+  when duplicate_object then null;
+end $$;
+
 create table if not exists services (
   id text primary key,
   name text not null,
@@ -106,6 +119,18 @@ create table if not exists reviews (
   created_at timestamptz not null default now()
 );
 
+create table if not exists notifications (
+  id text primary key,
+  user_id text not null references users(id) on delete cascade,
+  appointment_id text references appointments(id) on delete cascade,
+  kind notification_kind not null,
+  title text not null,
+  message text not null,
+  read_at timestamptz,
+  scheduled_for timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 -- OTP codes for email / phone verification.
 -- Codes expire automatically; old rows are cleaned up on insert.
 create table if not exists auth_codes (
@@ -130,6 +155,8 @@ create index if not exists appointments_master_date_idx on appointments(master_i
 create index if not exists services_filter_idx on services(category, repair_type, price);
 create index if not exists masters_available_idx on masters(available);
 create index if not exists reviews_client_idx on reviews(client_user_id, created_at);
+create index if not exists notifications_user_due_idx on notifications(user_id, scheduled_for, created_at);
+create index if not exists notifications_unread_idx on notifications(user_id, read_at, scheduled_for);
 
 create or replace function set_updated_at()
 returns trigger as $$
@@ -166,6 +193,7 @@ alter table appointments enable row level security;
 alter table quick_requests enable row level security;
 alter table reviews enable row level security;
 alter table auth_codes enable row level security;
+alter table notifications enable row level security;
 
 -- service_role bypasses RLS by default in Supabase.
 -- The policies below add explicit anon/authenticated access where needed.
@@ -193,3 +221,6 @@ create policy if not exists "reviews: deny anon"
 
 create policy if not exists "auth_codes: deny anon"
   on auth_codes for all using (false);
+
+create policy if not exists "notifications: deny anon"
+  on notifications for all using (false);

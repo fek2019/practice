@@ -2,6 +2,7 @@ import { AuthSession, UserRole } from "@/types";
 import { storeCode, verifyCode } from "./auth-codes";
 import { isDemoAuthEnabled } from "./config";
 import { badRequest, forbidden, unauthorized } from "./errors";
+import { buildWelcomeNotification } from "./notification-templates";
 import { sendEmailCode, sendSmsCode } from "./notifications";
 import { getRepository } from "./repositories";
 import { hashPassword, verifyPassword } from "./security/password";
@@ -20,6 +21,19 @@ const generateEmailCode = () =>
   process.env.NODE_ENV === "production"
     ? Math.floor(1000 + Math.random() * 9000).toString()
     : DEMO_EMAIL_CODE;
+
+const sendWelcomeNotification = async (userId: string) => {
+  const welcome = buildWelcomeNotification();
+  try {
+    await getRepository().createNotification({
+      userId,
+      kind: "welcome",
+      ...welcome
+    });
+  } catch (error) {
+    console.error("[notification][welcome]", error);
+  }
+};
 
 // ─── Request code ─────────────────────────────────────────────────────────────
 
@@ -65,12 +79,14 @@ export async function loginWithPhone(
   }
 
   const repository = getRepository();
-  const user =
-    (await repository.getUserByPhone(normalizedPhone)) ??
-    (await repository.createClientUser({
+  let user = await repository.getUserByPhone(normalizedPhone);
+  if (!user) {
+    user = await repository.createClientUser({
       name: "Новый клиент",
       phone: normalizedPhone,
-    }));
+    });
+    await sendWelcomeNotification(user.id);
+  }
 
   if (user.isBanned) {
     throw forbidden("Аккаунт заблокирован");
@@ -102,12 +118,7 @@ export async function loginWithEmail(
   const user = await repository.getUserByEmail(normalizedEmail);
 
   if (!user) {
-    const created = await repository.createClientUser({
-      name: "Новый клиент",
-      email: normalizedEmail,
-      passwordHash: hashPassword(password),
-    });
-    return issueSession(created);
+    throw unauthorized("Пользователь не найден. Зарегистрируйтесь.");
   }
 
   if (user.isBanned) {
@@ -119,6 +130,38 @@ export async function loginWithEmail(
   }
 
   return issueSession(user);
+}
+
+export async function registerWithEmail(
+  email: string,
+  password: string,
+  code: string
+): Promise<AuthSession> {
+  if (!password.trim() || !code.trim()) {
+    throw badRequest("Email, пароль и код обязательны");
+  }
+
+  const normalizedEmail = validateEmail(email);
+  const demoAllowed = isDemoAuthEnabled() && code === DEMO_EMAIL_CODE;
+  const codeValid = demoAllowed || (await verifyCode(`email:${normalizedEmail}`, code));
+
+  if (!codeValid) {
+    throw unauthorized("Неверный или просроченный код подтверждения");
+  }
+
+  const repository = getRepository();
+  const existing = await repository.getUserByEmail(normalizedEmail);
+  if (existing) {
+    throw badRequest("Пользователь с такой почтой уже зарегистрирован");
+  }
+
+  const created = await repository.createClientUser({
+    name: "Новый клиент",
+    email: normalizedEmail,
+    passwordHash: hashPassword(password),
+  });
+  await sendWelcomeNotification(created.id);
+  return issueSession(created);
 }
 
 // ─── Demo role switch ─────────────────────────────────────────────────────────

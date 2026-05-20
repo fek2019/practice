@@ -34,10 +34,12 @@ export const saveSession = (session: AuthSession | null) => {
 
   if (!session) {
     window.localStorage.removeItem(SESSION_KEY);
+    window.dispatchEvent(new CustomEvent("watchlab:session-changed", { detail: null }));
     return;
   }
 
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  window.dispatchEvent(new CustomEvent("watchlab:session-changed", { detail: session }));
 };
 
 export const logout = () => saveSession(null);
@@ -83,6 +85,12 @@ export async function loginWithPhone(phone: string, code: string) {
 
 export async function loginWithEmail(email: string, password: string, code: string) {
   const session = await authRequest<AuthSession>("/api/auth/login-email", { email, password, code });
+  saveSession(session);
+  return session;
+}
+
+export async function registerWithEmail(email: string, password: string, code: string) {
+  const session = await authRequest<AuthSession>("/api/auth/register-email", { email, password, code });
   saveSession(session);
   return session;
 }

@@ -4,6 +4,7 @@ import {
   AppointmentStatus,
   CreateAppointmentInput,
   Master,
+  Notification,
   QuickRequest,
   Review,
   Service,
@@ -11,11 +12,20 @@ import {
   User,
   UserRole
 } from "@/types";
+import { filterFutureSlots, isAppointmentInFuture, isFutureInstant } from "@/lib/time";
 import { createSupabaseAdminClient } from "../supabase/client";
 import { conflict, notFound } from "../errors";
 import { sendClientNotification, sendMasterNotification } from "../notifications";
+import {
+  buildAppointmentConfirmedNotification,
+  buildAppointmentDayReminderNotification,
+  buildAppointmentHoursReminderNotification,
+  getReminderSchedule,
+  WORKSHOP_ADDRESS
+} from "../notification-templates";
+import { sendDueTelegramNotifications } from "../../../tgbot/notifier";
 import { generateId, getWorkshopSlots } from "./workshop-rules";
-import { CreateQuickRequestInput, WorkshopRepository } from "./types";
+import { CreateNotificationInput, CreateQuickRequestInput, WorkshopRepository } from "./types";
 
 type ServiceRow = {
   id: string;
@@ -77,6 +87,18 @@ type QuickRequestRow = {
   client_name: string;
   client_phone: string;
   service_name: string;
+  created_at: string;
+};
+
+type NotificationRow = {
+  id: string;
+  user_id: string;
+  appointment_id: string | null;
+  kind: Notification["kind"];
+  title: string;
+  message: string;
+  read_at: string | null;
+  scheduled_for: string;
   created_at: string;
 };
 
@@ -163,6 +185,18 @@ const toReview = (row: ReviewRow): Review => ({
   createdAt: row.created_at
 });
 
+const toNotification = (row: NotificationRow): Notification => ({
+  id: row.id,
+  userId: row.user_id,
+  appointmentId: row.appointment_id ?? undefined,
+  kind: row.kind,
+  title: row.title,
+  message: row.message,
+  readAt: row.read_at,
+  scheduledFor: row.scheduled_for,
+  createdAt: row.created_at
+});
+
 const fail = (error: { code?: string; message: string } | null, fallback: string) => {
   if (!error) {
     return;
@@ -174,6 +208,12 @@ const fail = (error: { code?: string; message: string } | null, fallback: string
 };
 
 const db = () => createSupabaseAdminClient();
+
+const dispatchTelegramNotifications = () => {
+  sendDueTelegramNotifications().catch((error) => {
+    console.error("[telegram-notifications]", error);
+  });
+};
 
 const chooseBestMaster = async (date: string, timeSlot: string) => {
   const client = db();
@@ -337,7 +377,7 @@ export const supabaseRepository: WorkshopRepository = {
       return [];
     }
 
-    const slots = getWorkshopSlots();
+    const slots = filterFutureSlots(date, getWorkshopSlots());
     const client = db();
 
     if (masterId && masterId !== "any") {
@@ -368,6 +408,10 @@ export const supabaseRepository: WorkshopRepository = {
   },
 
   async createAppointment(input: CreateAppointmentInput) {
+    if (!isAppointmentInFuture(input.date, input.timeSlot)) {
+      throw conflict("Нельзя записаться на прошедшее время");
+    }
+
     const service = await this.getServiceById(input.serviceId);
     if (!service) {
       throw notFound("Услуга не найдена");
@@ -402,17 +446,55 @@ export const supabaseRepository: WorkshopRepository = {
     fail(error, "Не удалось создать запись");
 
     const appointment = toAppointment(data as AppointmentRow);
-    await this.createClientUser({
-      name: appointment.clientName,
-      phone: appointment.clientPhone,
-      email: appointment.clientEmail
-    }).catch(() => undefined);
+    const clientUser =
+      (input.clientUserId ? await this.getUserById(input.clientUserId) : null) ??
+      (appointment.clientEmail ? await this.getUserByEmail(appointment.clientEmail) : null) ??
+      (appointment.clientPhone ? await this.getUserByPhone(appointment.clientPhone) : null);
 
     await sendClientNotification(
       appointment.clientPhone,
       `Заявка ${appointment.id} принята. Дата: ${appointment.date}, время: ${appointment.timeSlot}.`
     );
     await sendMasterNotification(masterId, `Новая заявка ${appointment.id} на ${appointment.date} ${appointment.timeSlot}.`);
+
+    if (clientUser) {
+      const master = await this.getMasterById(masterId);
+      const details = {
+        appointment,
+        serviceName: service.name,
+        masterName: master?.name ?? "Мастер WatchLab",
+        address: WORKSHOP_ADDRESS
+      };
+      const confirmed = buildAppointmentConfirmedNotification(details);
+      const dayReminder = buildAppointmentDayReminderNotification(details);
+      const hoursReminder = buildAppointmentHoursReminderNotification(details);
+      const schedule = getReminderSchedule(appointment);
+
+      await this.createNotification({
+        userId: clientUser.id,
+        appointmentId: appointment.id,
+        kind: "appointment-confirmed",
+        ...confirmed
+      });
+      if (isFutureInstant(schedule.dayBefore)) {
+        await this.createNotification({
+          userId: clientUser.id,
+          appointmentId: appointment.id,
+          kind: "appointment-reminder-day",
+          scheduledFor: schedule.dayBefore,
+          ...dayReminder
+        });
+      }
+      if (isFutureInstant(schedule.twoHoursBefore)) {
+        await this.createNotification({
+          userId: clientUser.id,
+          appointmentId: appointment.id,
+          kind: "appointment-reminder-hours",
+          scheduledFor: schedule.twoHoursBefore,
+          ...hoursReminder
+        });
+      }
+    }
 
     return appointment;
   },
@@ -597,6 +679,53 @@ export const supabaseRepository: WorkshopRepository = {
     const { data, error } = await db().from("users").insert(payload).select("*").single();
     fail(error, "Не удалось создать пользователя");
     return toUser(data as UserRow);
+  },
+
+  async createNotification(input: CreateNotificationInput) {
+    const payload = {
+      id: generateId("n"),
+      user_id: input.userId,
+      appointment_id: input.appointmentId ?? null,
+      kind: input.kind,
+      title: input.title,
+      message: input.message,
+      scheduled_for: input.scheduledFor ?? new Date().toISOString()
+    };
+    const { data, error } = await db().from("notifications").insert(payload).select("*").single();
+    fail(error, "Не удалось создать уведомление");
+    const notification = toNotification(data as NotificationRow);
+    dispatchTelegramNotifications();
+    return notification;
+  },
+
+  async listUserNotifications(userId: string) {
+    const { data, error } = await db()
+      .from("notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .lte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: false })
+      .order("created_at", { ascending: false });
+    fail(error, "Не удалось получить уведомления");
+    dispatchTelegramNotifications();
+    return ((data ?? []) as NotificationRow[]).map(toNotification);
+  },
+
+  async markNotificationsRead(userId: string, notificationIds?: string[]) {
+    let query = db()
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .is("read_at", null);
+
+    if (notificationIds && notificationIds.length > 0) {
+      query = query.in("id", notificationIds);
+    } else {
+      query = query.lte("scheduled_for", new Date().toISOString());
+    }
+
+    const { error } = await query;
+    fail(error, "Не удалось отметить уведомления прочитанными");
   },
 
   async listReviewsByClient(userId: string) {

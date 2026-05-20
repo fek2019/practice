@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { badRequest, forbidden } from "@/server/errors";
+import { badRequest, forbidden, unauthorized } from "@/server/errors";
 import { handleRouteError, jsonCreated, jsonOk } from "@/server/http";
 import { getRepository } from "@/server/repositories";
 import { requireSession } from "@/server/security/session";
@@ -42,8 +42,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = requireSession(request, ["client"]);
+    const repository = getRepository();
+    const user = await repository.getUserById(session.userId);
+    if (!user) {
+      throw unauthorized("Сессия устарела. Войдите снова.");
+    }
+
     const body = await readJsonObject(request);
-    return jsonCreated(await getRepository().createAppointment(parseCreateAppointment(body)));
+    const input = parseCreateAppointment(body);
+    return jsonCreated(
+      await repository.createAppointment({
+        ...input,
+        clientUserId: user.id,
+        clientEmail: user.email,
+        clientName: input.clientName || user.name,
+      })
+    );
   } catch (error) {
     return handleRouteError(error);
   }

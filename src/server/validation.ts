@@ -3,8 +3,8 @@ import { badRequest } from "./errors";
 
 // ─── Format validators ────────────────────────────────────────────────────────
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-const PHONE_RE = /^\+?[1-9]\d{6,14}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const PHONE_RE = /^\+7\d{10}$/;
 
 /** Strips all spaces and dashes so "+7 999 123-45-67" → "+79991234567" */
 const normalizePhone = (phone: string) => phone.replace(/[\s\-()]/g, "");
@@ -19,7 +19,7 @@ export const validateEmail = (email: string): string => {
 export const validatePhone = (phone: string): string => {
   const v = normalizePhone(phone.trim());
   if (!v) throw badRequest("Введите номер телефона");
-  if (!PHONE_RE.test(v)) throw badRequest("Некорректный формат номера телефона");
+  if (!PHONE_RE.test(v)) throw badRequest("Телефон должен начинаться с +7 и содержать 10 цифр после кода страны");
   return v;
 };
 
@@ -159,7 +159,7 @@ export const parseMasterPatch = (body: Record<string, unknown>): Partial<Omit<Ma
 
 export const parseCreateAppointment = (body: Record<string, unknown>): CreateAppointmentInput => ({
   clientName: requireString(body, "clientName", "имя клиента"),
-  clientPhone: requireString(body, "clientPhone", "телефон"),
+  clientPhone: validatePhone(requireString(body, "clientPhone", "телефон")),
   clientEmail: requireString(body, "clientEmail", "email"),
   serviceId: requireString(body, "serviceId", "услуга"),
   masterId: optionalString(body, "masterId") || null,

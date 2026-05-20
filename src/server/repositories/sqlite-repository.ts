@@ -4,6 +4,7 @@ import {
   AppointmentStatus,
   CreateAppointmentInput,
   Master,
+  Notification,
   QuickRequest,
   Review,
   Service,
@@ -11,11 +12,20 @@ import {
   User,
   UserRole
 } from "@/types";
+import { filterFutureSlots, isAppointmentInFuture, isFutureInstant } from "@/lib/time";
 import { conflict, notFound } from "../errors";
 import { sendClientNotification, sendMasterNotification } from "../notifications";
+import {
+  buildAppointmentConfirmedNotification,
+  buildAppointmentDayReminderNotification,
+  buildAppointmentHoursReminderNotification,
+  getReminderSchedule,
+  WORKSHOP_ADDRESS
+} from "../notification-templates";
+import { sendDueTelegramNotifications } from "../../../tgbot/notifier";
 import { getDb } from "../db/sqlite";
 import { generateId, getWorkshopSlots } from "./workshop-rules";
-import { CreateQuickRequestInput, WorkshopRepository } from "./types";
+import { CreateNotificationInput, CreateQuickRequestInput, WorkshopRepository } from "./types";
 
 // ============================================================================
 // Row types — то, как BetterSqlite возвращает строки (snake_case колонки).
@@ -81,6 +91,18 @@ type QuickRequestRow = {
   client_name: string;
   client_phone: string;
   service_name: string;
+  created_at: string;
+};
+
+type NotificationRow = {
+  id: string;
+  user_id: string;
+  appointment_id: string | null;
+  kind: Notification["kind"];
+  title: string;
+  message: string;
+  read_at: string | null;
+  scheduled_for: string;
   created_at: string;
 };
 
@@ -152,6 +174,18 @@ const toReview = (row: ReviewRow): Review => ({
   createdAt: row.created_at
 });
 
+const toNotification = (row: NotificationRow): Notification => ({
+  id: row.id,
+  userId: row.user_id,
+  appointmentId: row.appointment_id ?? undefined,
+  kind: row.kind,
+  title: row.title,
+  message: row.message,
+  readAt: row.read_at,
+  scheduledFor: row.scheduled_for,
+  createdAt: row.created_at
+});
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -161,6 +195,12 @@ const isUniqueConstraintError = (error: unknown): boolean =>
   // better-sqlite3 throws SqliteError with code 'SQLITE_CONSTRAINT_UNIQUE'
   ((error as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE" ||
     /UNIQUE constraint failed/i.test(error.message));
+
+const dispatchTelegramNotifications = () => {
+  sendDueTelegramNotifications().catch((error) => {
+    console.error("[telegram-notifications]", error);
+  });
+};
 
 const chooseBestMaster = (date: string, timeSlot: string): string | null => {
   const db = getDb();
@@ -367,7 +407,7 @@ export const sqliteRepository: WorkshopRepository = {
   // -------------------------------- slots -----------------------------------
   async getAvailableSlots(date: string, masterId?: string | null) {
     const db = getDb();
-    const slots = getWorkshopSlots();
+    const slots = filterFutureSlots(date, getWorkshopSlots());
 
     const availableMasterCount = (db
       .prepare(`SELECT COUNT(*) AS count FROM masters WHERE available = 1`)
@@ -406,8 +446,14 @@ export const sqliteRepository: WorkshopRepository = {
   async createAppointment(input: CreateAppointmentInput) {
     const db = getDb();
 
+    if (!isAppointmentInFuture(input.date, input.timeSlot)) {
+      throw conflict("Нельзя записаться на прошедшее время");
+    }
+
     // Pre-checks (за пределами транзакции, т.к. могут вызывать побочные эффекты)
-    const serviceRow = db.prepare(`SELECT id FROM services WHERE id = ?`).get(input.serviceId);
+    const serviceRow = db.prepare(`SELECT id, name FROM services WHERE id = ?`).get(input.serviceId) as
+      | { id: string; name: string }
+      | undefined;
     if (!serviceRow) {
       throw notFound("Услуга не найдена");
     }
@@ -456,17 +502,12 @@ export const sqliteRepository: WorkshopRepository = {
 
     const row = db.prepare(`SELECT * FROM appointments WHERE id = ?`).get(id) as AppointmentRow;
     const appointment = toAppointment(row);
+    const masterRow = db.prepare(`SELECT name FROM masters WHERE id = ?`).get(masterId) as { name: string } | undefined;
 
-    // Создаём/находим клиентского пользователя (без падения транзакции).
-    try {
-      await this.createClientUser({
-        name: appointment.clientName,
-        phone: appointment.clientPhone,
-        email: appointment.clientEmail
-      });
-    } catch {
-      // ignore — пользователь мог уже существовать с конфликтующим контактом
-    }
+    const clientUser =
+      (input.clientUserId ? await this.getUserById(input.clientUserId) : null) ??
+      (appointment.clientEmail ? await this.getUserByEmail(appointment.clientEmail) : null) ??
+      (appointment.clientPhone ? await this.getUserByPhone(appointment.clientPhone) : null);
 
     await sendClientNotification(
       appointment.clientPhone,
@@ -476,6 +517,44 @@ export const sqliteRepository: WorkshopRepository = {
       masterId,
       `Новая заявка ${appointment.id} на ${appointment.date} ${appointment.timeSlot}.`
     );
+
+    if (clientUser) {
+      const details = {
+        appointment,
+        serviceName: serviceRow.name,
+        masterName: masterRow?.name ?? "Мастер WatchLab",
+        address: WORKSHOP_ADDRESS
+      };
+      const confirmed = buildAppointmentConfirmedNotification(details);
+      const dayReminder = buildAppointmentDayReminderNotification(details);
+      const hoursReminder = buildAppointmentHoursReminderNotification(details);
+      const schedule = getReminderSchedule(appointment);
+
+      await this.createNotification({
+        userId: clientUser.id,
+        appointmentId: appointment.id,
+        kind: "appointment-confirmed",
+        ...confirmed
+      });
+      if (isFutureInstant(schedule.dayBefore)) {
+        await this.createNotification({
+          userId: clientUser.id,
+          appointmentId: appointment.id,
+          kind: "appointment-reminder-day",
+          scheduledFor: schedule.dayBefore,
+          ...dayReminder
+        });
+      }
+      if (isFutureInstant(schedule.twoHoursBefore)) {
+        await this.createNotification({
+          userId: clientUser.id,
+          appointmentId: appointment.id,
+          kind: "appointment-reminder-hours",
+          scheduledFor: schedule.twoHoursBefore,
+          ...hoursReminder
+        });
+      }
+    }
 
     return appointment;
   },
@@ -740,6 +819,61 @@ export const sqliteRepository: WorkshopRepository = {
 
     const row = db.prepare(`SELECT * FROM users WHERE id = ?`).get(id) as UserRow;
     return toUser(row);
+  },
+
+  async createNotification(input: CreateNotificationInput) {
+    const db = getDb();
+    const id = generateId("n");
+    const scheduledFor = input.scheduledFor ?? new Date().toISOString();
+    db.prepare(
+      `INSERT INTO notifications (id, user_id, appointment_id, kind, title, message, scheduled_for)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      input.userId,
+      input.appointmentId ?? null,
+      input.kind,
+      input.title,
+      input.message,
+      scheduledFor
+    );
+
+    const row = db.prepare(`SELECT * FROM notifications WHERE id = ?`).get(id) as NotificationRow;
+    const notification = toNotification(row);
+    dispatchTelegramNotifications();
+    return notification;
+  },
+
+  async listUserNotifications(userId: string) {
+    const rows = getDb()
+      .prepare(
+        `SELECT * FROM notifications
+         WHERE user_id = ? AND scheduled_for <= ?
+         ORDER BY scheduled_for DESC, created_at DESC`
+      )
+      .all(userId, new Date().toISOString()) as NotificationRow[];
+    dispatchTelegramNotifications();
+    return rows.map(toNotification);
+  },
+
+  async markNotificationsRead(userId: string, notificationIds?: string[]) {
+    const db = getDb();
+    const readAt = new Date().toISOString();
+    if (!notificationIds || notificationIds.length === 0) {
+      db.prepare(
+        `UPDATE notifications
+         SET read_at = ?
+         WHERE user_id = ? AND read_at IS NULL AND scheduled_for <= ?`
+      ).run(readAt, userId, readAt);
+      return;
+    }
+
+    const placeholders = notificationIds.map(() => "?").join(", ");
+    db.prepare(
+      `UPDATE notifications
+       SET read_at = ?
+       WHERE user_id = ? AND read_at IS NULL AND id IN (${placeholders})`
+    ).run(readAt, userId, ...notificationIds);
   },
 
   async listReviewsByClient(userId: string) {

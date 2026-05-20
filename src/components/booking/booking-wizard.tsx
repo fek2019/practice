@@ -1,15 +1,28 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createAppointment, getAvailableSlots, listMasters, listServices } from "@/lib/api-client";
+import { getSession } from "@/lib/auth-client";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { Appointment, Master, Service } from "@/types";
+import { getTodayDate } from "@/lib/time";
+import { Appointment, AuthSession, Master, Service } from "@/types";
 
 const steps = ["Услуга", "Мастер", "Дата и время", "Контакты", "Подтверждение"];
 const BOOKING_PROGRESS_EVENT = "booking-wizard:progress";
+const BOOKING_PHONE_RE = /^\+7\d{10}$/;
+const SLOT_SEARCH_DAYS = 60;
 
-const getTodayDate = () => new Date().toISOString().slice(0, 10);
+const normalizeBookingPhone = (value: string) => value.replace(/[\s\-()]/g, "");
+
+const isValidBookingPhone = (value: string) => BOOKING_PHONE_RE.test(normalizeBookingPhone(value));
+
+const addDaysToDateInput = (value: string, days: number) => {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+};
 
 export function BookingWizard() {
   const searchParams = useSearchParams();
@@ -23,7 +36,9 @@ export function BookingWizard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [dateNotice, setDateNotice] = useState("");
   const [success, setSuccess] = useState<Appointment | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
 
   const [serviceId, setServiceId] = useState("");
   const [masterId, setMasterId] = useState("any");
@@ -32,6 +47,19 @@ export function BookingWizard() {
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+
+  useEffect(() => {
+    setSession(getSession());
+  }, []);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+    setClientName((value) => value || session.name);
+    setClientPhone((value) => value || session.phone);
+    setClientEmail(session.email);
+  }, [session]);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -51,17 +79,40 @@ export function BookingWizard() {
     if (!date) {
       return;
     }
+    let ignore = false;
     const fetchSlots = async () => {
       setLoadingSlots(true);
-      const available = await getAvailableSlots(date, masterId === "any" ? null : masterId);
-      setSlots(available);
-      if (timeSlot && !available.includes(timeSlot)) {
-        setTimeSlot("");
+      setDateNotice((current) => (current.includes(formatDate(date)) ? current : ""));
+
+      for (let dayOffset = 0; dayOffset <= SLOT_SEARCH_DAYS; dayOffset += 1) {
+        const candidateDate = addDaysToDateInput(date, dayOffset);
+        const available = await getAvailableSlots(candidateDate, masterId === "any" ? null : masterId);
+        if (ignore) {
+          return;
+        }
+
+        if (available.length > 0) {
+          setSlots(available);
+          setTimeSlot((current) => (current && available.includes(current) ? current : ""));
+          if (candidateDate !== date) {
+            setDate(candidateDate);
+            setDateNotice(`На выбранный день свободных слотов нет. Календарь перенесен на ближайшую доступную дату: ${formatDate(candidateDate)}.`);
+          }
+          setLoadingSlots(false);
+          return;
+        }
       }
+
+      setSlots([]);
+      setTimeSlot("");
+      setDateNotice("В ближайшие дни свободных слотов нет. Попробуйте выбрать другого мастера.");
       setLoadingSlots(false);
     };
     fetchSlots();
-  }, [date, masterId, timeSlot]);
+    return () => {
+      ignore = true;
+    };
+  }, [date, masterId]);
 
   const selectedService = useMemo(() => services.find((service) => service.id === serviceId), [serviceId, services]);
   const selectedMaster = useMemo(
@@ -97,6 +148,10 @@ export function BookingWizard() {
         return;
       }
     }
+    if (step === 4 && !isValidBookingPhone(clientPhone)) {
+      setError("Телефон должен начинаться с +7 и содержать 10 цифр после кода страны.");
+      return;
+    }
     setStep((current) => Math.min(current + 1, 5));
   };
 
@@ -108,12 +163,20 @@ export function BookingWizard() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
+    if (!session) {
+      setError("Сначала войдите или зарегистрируйтесь, чтобы создать запись.");
+      return;
+    }
+    if (!isValidBookingPhone(clientPhone)) {
+      setError("Телефон должен начинаться с +7 и содержать 10 цифр после кода страны.");
+      return;
+    }
     try {
       setSubmitting(true);
       const appointment = await createAppointment({
         clientName: clientName.trim(),
-        clientPhone: clientPhone.trim(),
-        clientEmail: clientEmail.trim(),
+        clientPhone: normalizeBookingPhone(clientPhone),
+        clientEmail: session.email,
         serviceId,
         masterId: masterId === "any" ? null : masterId,
         date,
@@ -129,6 +192,18 @@ export function BookingWizard() {
 
   if (loading) {
     return <p className="hint">Загрузка формы записи...</p>;
+  }
+
+  if (!session || session.role !== "client") {
+    return (
+      <div className="panel booking-success" data-reveal="up">
+        <h2>Войдите для записи</h2>
+        <p>Запись сохраняется в базе и отображается в личном кабинете только для зарегистрированных клиентов.</p>
+        <Link className="cta-button small" href="/account" style={{ marginTop: "1rem" }}>
+          Войти или зарегистрироваться
+        </Link>
+      </div>
+    );
   }
 
   if (success) {
@@ -221,6 +296,11 @@ export function BookingWizard() {
               <p className="hint" style={{ marginBottom: "0.4rem" }}>
                 Свободные слоты ({masterId === "any" ? "любой мастер" : selectedMaster?.name})
               </p>
+              {dateNotice ? (
+                <div className="notice success" style={{ marginBottom: "0.8rem" }}>
+                  {dateNotice}
+                </div>
+              ) : null}
               {loadingSlots ? (
                 <p className="hint">Подбираем свободные слоты...</p>
               ) : (
@@ -254,11 +334,11 @@ export function BookingWizard() {
             </div>
             <div className="field">
               <label htmlFor="client-phone">Телефон</label>
-              <input id="client-phone" value={clientPhone} onChange={(event) => setClientPhone(event.target.value)} />
+              <input id="client-phone" value={clientPhone} placeholder="+79991234567" onChange={(event) => setClientPhone(event.target.value)} />
             </div>
             <div className="field">
               <label htmlFor="client-email">Email</label>
-              <input id="client-email" type="email" value={clientEmail} onChange={(event) => setClientEmail(event.target.value)} />
+              <input id="client-email" type="email" value={clientEmail} readOnly />
             </div>
           </div>
         ) : null}

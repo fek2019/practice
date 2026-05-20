@@ -100,6 +100,18 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  appointment_id TEXT REFERENCES appointments(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('welcome', 'appointment-confirmed', 'appointment-reminder-day', 'appointment-reminder-hours', 'appointment-status')),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  read_at TEXT,
+  scheduled_for TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- Уникальный индекс: один мастер не может иметь две активные записи в один слот.
 -- Записи со статусом 'done' исключаются — слот после завершения снова свободен.
 CREATE UNIQUE INDEX IF NOT EXISTS appointments_master_slot_active_uidx
@@ -112,6 +124,8 @@ CREATE INDEX IF NOT EXISTS appointments_master_date_idx ON appointments(master_i
 CREATE INDEX IF NOT EXISTS services_filter_idx ON services(category, repair_type, price);
 CREATE INDEX IF NOT EXISTS masters_available_idx ON masters(available);
 CREATE INDEX IF NOT EXISTS reviews_client_idx ON reviews(client_user_id, created_at);
+CREATE INDEX IF NOT EXISTS notifications_user_due_idx ON notifications(user_id, scheduled_for, created_at);
+CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications(user_id, read_at, scheduled_for);
 
 -- Триггеры для автоматического обновления updated_at.
 CREATE TRIGGER IF NOT EXISTS services_set_updated_at
